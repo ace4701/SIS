@@ -1,0 +1,166 @@
+body { font-family: Arial, sans-serif; background-color: #f4f7f6; padding: 0; margin: 0; }
+
+/* --- UPPERMOST HEADER --- */  
+.top-header { display: flex; justify-content: space-between; align-items: center; background: linear-gradient(rgb(255, 60, 60),rgb(255, 255, 60)); color: rgb(0, 0, 0); padding: 15px 30px; }
+.top-header h2 { margin: 0; font-size: 22px; letter-spacing: 1px; }
+.user-controls { display: flex; align-items: center; gap: 15px; font-size: 14px; }
+.btn-help { background-color: #ffc107; color: black; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; }
+.btn-logout { background-color: #ea2c2c; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;}
+
+.btn-help:hover{background-color: #f3ca51;}
+.btn-logout:hover{background-color: #ff5f5f;}
+    
+/* --- CHROME-STYLE CONNECTED TABS --- */
+.tab-container { 
+    display: flex; 
+    justify-content: center; 
+    align-items: flex-end;
+    background-color: #dfe1e5; 
+    padding-top: 15px; 
+    border-bottom: 2px solid white; 
+}
+.chrome-tab { 
+    background-color: #f1f3f4; 
+    border: 1px solid #ccc;
+    border-bottom: none;
+    border-radius: 12px 12px 0 0; 
+    padding: 12px 30px; 
+    /* Set margin to 0 to connect them, and use negative right margin to overlap borders perfectly */
+    margin: 0 -1px 0 0; 
+    cursor: pointer; 
+    font-size: 15px;
+    font-weight: bold; 
+    color: #5f6368; 
+    transition: all 0.2s ease;
+    position: relative;
+    z-index: 1;
+}
+.chrome-tab:hover { background-color: #e8eaed; }
+.chrome-tab.active { 
+    background-color: white; 
+    color: #da251d; 
+    border-color: #ddd;
+    z-index: 3;
+    margin-bottom: -2px; 
+    padding-bottom: 14px; 
+    box-shadow: 0 -3px 6px rgba(0,0,0,0.05);
+}
+
+/* --- TAB CONTENT AREAS --- */
+.tab-content { 
+    display: none; 
+    padding: 30px; 
+    max-width: 1200px; 
+    margin: 0 auto; 
+    animation: fadeIn 0.3s; 
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* Dashboard 3-Column Layout */
+.dashboard-wrapper { display: flex; gap: 20px; align-items: flex-start; }
+.side-panel { flex: 1; display: flex; flex-direction: column; gap: 15px; }
+.center-panel { flex: 2.5; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+.info-box { background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow: hidden; }
+.info-header { padding: 15px; color: white; font-weight: bold; text-align: center; margin: 0; }
+
+table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; }
+th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+th { background-color: #0056b3; color: white; text-align: center;}
+td.center { text-align: center; }
+
+/* Generic Container for News/Events/Analytics/Users */
+.generic-container { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+.feed-item { display: block; text-decoration: none; color: #333; padding: 15px; border-bottom: 1px solid #eee; }
+.feed-item:hover { background-color: #f8f9fa; cursor: pointer; }
+.small-feed { padding: 10px; font-size: 14px; }
+.small-feed-date { font-size: 12px; color: #777; margin-top: 5px; }
+
+/* Forms */
+input, select { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;}
+.btn-submit { width: 100%; padding: 10px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 10px; font-weight: bold;}
+
+/* --- 4. ADVANCED TABLE VISUALS (MEDALS & FLAGS) --- */
+
+/* Tinted Medal Columns */
+.col-gold { background-color: rgba(255, 215, 0, 0.25) !important; color: #b8860b; font-size: 18px; font-weight: 900; }
+.col-silver { background-color: rgba(192, 192, 192, 0.4) !important; color: #495057; font-size: 18px; font-weight: 900; }
+.col-bronze { background-color: rgba(205, 127, 50, 0.2) !important; color: #8b4513; font-size: 18px; font-weight: 900; }
+
+/* Darker Headers for the Medals */
+th.col-gold { background-color: #ffc107 !important; color: #856404; text-shadow: 0 1px 0 rgba(255,255,255,0.5); }
+th.col-silver { background-color: #e2e3e5 !important; color: #383d41; }
+th.col-bronze { background-color: #cd7f32 !important; color: white; }
+
+/* State Name & Flag Styling */
+.state-container { 
+    display: flex; 
+    align-items: center; 
+    justify-content: flex-start; /* Aligns flag and text to the left neatly */
+    gap: 12px; 
+}
+.state-flag { 
+    width: 32px; 
+    height: 22px; 
+    border-radius: 3px; 
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3); 
+    object-fit: cover; 
+    background-color: #eee; /* Placeholder color if image is missing */
+}
+.state-badge { 
+    background-color: #f8f9fa; 
+    padding: 6px 12px; 
+    border-radius: 20px; 
+    border: 1px solid #dee2e6; 
+    color: #333; 
+    font-weight: bold;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.state-cell {
+    position: relative;
+    overflow: hidden;
+    text-align: left !important;
+    vertical-align: middle;
+}
+.state-flag-bg {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-size: cover;
+    background-position: center;
+    opacity: 0.2; /* This creates the low opacity background effect */
+    z-index: 1;
+}
+.state-name-text {
+    position: relative;
+    z-index: 2;
+    font-weight: 900;
+    color: #333;
+    padding-left: 20px;
+    font-size: 16px;
+    letter-spacing: 0.5px;
+}
+
+/* --- 5. SOCIAL UI UPGRADES (Dropdowns, Modals, Image Grids) --- */
+
+/* 3-Dot Dropdown Menu */
+.dropdown { position: relative; display: inline-block; }
+.dropdown-btn { background: none; border: none; font-size: 20px; cursor: pointer; padding: 0 10px; color: #777; transition: 0.2s; }
+.dropdown-btn:hover { color: #333; }
+.dropdown-content { display: none; position: absolute; right: 0; background-color: white; min-width: 130px; box-shadow: 0px 4px 12px rgba(0,0,0,0.15); z-index: 10; border-radius: 6px; overflow: hidden; border: 1px solid #eee; }
+.dropdown-content.show { display: block; }
+.dropdown-content a, .dropdown-content button { color: #333; padding: 12px 15px; text-decoration: none; display: block; text-align: left; width: 100%; border: none; background: none; font-size: 14px; cursor: pointer; transition: 0.2s; }
+.dropdown-content a:hover, .dropdown-content button:hover { background-color: #f8f9fa; color: #da251d; }
+
+/* Multiple Image Grid */
+.image-grid { display: flex; flex-wrap: wrap; gap: 4px; border-top: 1px solid #eee; border-bottom: 1px solid #eee; background: #f8f9fa; }
+.image-grid img { flex: 1 1 48%; max-height: 350px; object-fit: cover; width: 100%; cursor: pointer; }
+.image-grid img:only-child { flex: 1 1 100%; max-height: 500px; } /* If only 1 image, make it full width */
+
+/* Custom Delete Modal */
+.custom-modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); align-items: center; justify-content: center; animation: fadeIn 0.2s; }
+.modal-box { background-color: white; padding: 30px; border-radius: 8px; width: 400px; text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+.modal-title { margin-top: 0; color: #da251d; font-size: 22px; }
+.modal-text { color: #555; font-size: 15px; margin-bottom: 25px; line-height: 1.5; }
+.modal-actions { display: flex; justify-content: center; gap: 15px; }
+.btn-cancel { background: #6c757d; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+.btn-danger { background: #dc3545; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; }
