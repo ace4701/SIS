@@ -1,8 +1,7 @@
 <?php
-session_start();
-require 'db_config.php';
+require_once 'auth_guard.php';
 
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] == 'public') {
+if ($_SESSION['role'] == 'public') {
     die("Access Denied.");
 }
 

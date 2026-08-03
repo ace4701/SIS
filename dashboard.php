@@ -1,12 +1,5 @@
 <?php
-session_start();
-require 'db_config.php';
-
-// Security check
-if (!isset($_SESSION['user_id'])) {
-    header("Location: login.php");
-    exit();
-}
+require_once 'auth_guard.php';
 
 // Handle Add User Form Submission directly in the SPA
 $user_msg = "";

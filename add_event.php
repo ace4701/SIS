@@ -1,10 +1,8 @@
 <?php
-session_start();
-require 'db_config.php';
+require_once 'auth_guard.php';
 
-// Strict Authorization: Kick out unlogged users AND public users
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] == 'public') {
-    die("Access Denied: You do not have permission to add events.");
+if ($_SESSION['role'] == 'public') {
+    die("Access Denied.");
 }
 
 $message = "";

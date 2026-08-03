@@ -1,6 +1,5 @@
 <?php
-session_start();
-require 'db_config.php';
+require_once 'auth_guard.php';
 
 // Check if we are viewing a specific article or the whole feed
 $article_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;

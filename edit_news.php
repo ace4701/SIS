@@ -1,8 +1,7 @@
 <?php
-session_start();
-require 'db_config.php';
+require_once 'auth_guard.php';
 
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] == 'public') {
+if ($_SESSION['role'] == 'public') {
     die("Access Denied.");
 }
 
@@ -56,12 +55,33 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 
     // 4. Handle NEW uploads
+    // AFTER (Patched):
+    // 4. Handle NEW uploads
     if (isset($_FILES['news_images']) && !empty($_FILES['news_images']['name'][0])) {
         $target_dir = "uploads/";
+        
+        // Define strict whitelists
+        $allowed_mime_types = ['image/jpeg', 'image/png', 'image/gif'];
+        $allowed_extensions = ['jpg', 'jpeg', 'png', 'gif'];
+        
+        // Initialize PHP's finfo extension
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
         
         foreach ($_FILES['news_images']['tmp_name'] as $key => $tmp_name) {
             if ($_FILES['news_images']['error'][$key] == 0) {
                 
+                // SECURITY CHECK 1: Verify actual MIME type
+                $mime_type = finfo_file($finfo, $tmp_name);
+                if (!in_array($mime_type, $allowed_mime_types)) {
+                    continue; // Silently reject malicious files
+                }
+                
+                // SECURITY CHECK 2: Verify extension
+                $ext = strtolower(pathinfo($_FILES["news_images"]["name"][$key], PATHINFO_EXTENSION));
+                if (!in_array($ext, $allowed_extensions)) {
+                    continue; // Silently reject invalid extensions
+                }
+
                 $new_hash = md5_file($tmp_name);
                 
                 // REDUNDANCY CHECK: Compare new fingerprint against existing fingerprints
@@ -69,16 +89,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     continue; // Skip this duplicate!
                 }
                 
-                $ext = pathinfo($_FILES["news_images"]["name"][$key], PATHINFO_EXTENSION);
                 $new_filename = time() . '_' . rand(1000, 9999) . '.' . $ext;
                 $target_file = $target_dir . $new_filename;
                 
                 if (move_uploaded_file($tmp_name, $target_file)) {
                     $image_paths[] = $target_file; 
-                    $existing_hashes[] = $new_hash; // Add to hashes so we don't upload it twice in this batch
+                    $existing_hashes[] = $new_hash; 
                 }
             }
         }
+        finfo_close($finfo); // Clean up memory
     }
 
     $image_path_json = !empty($image_paths) ? json_encode($image_paths) : '';

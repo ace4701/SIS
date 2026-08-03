@@ -6,30 +6,46 @@ $error = "";
 
 // Check if the form was submitted
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    // Sanitize input to prevent SQL injection
-    $username = mysqli_real_escape_string($conn, $_POST['username']);
+    
+    $username = trim($_POST['username']);
     $password = $_POST['password'];
 
-    // Search for the user in the database
-    $query = "SELECT * FROM users WHERE username = '$username'";
-    $result = mysqli_query($conn, $query);
+    // 1. Prepare the SQL template
+    $stmt = mysqli_prepare($conn, "SELECT id, username, password, role FROM users WHERE username = ?");
+    
+    if ($stmt) {
+        // 2. Bind the data
+        mysqli_stmt_bind_param($stmt, "s", $username);
+        
+        // 3. Execute the secure query
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
 
-    if ($row = mysqli_fetch_assoc($result)) {
-        // User found, now check if the hashed password matches
-        if (password_verify($password, $row['password'])) {
-            // Success! Store user info in the session
-            $_SESSION['user_id'] = $row['id'];
-            $_SESSION['role'] = $row['role'];
-            $_SESSION['username'] = $row['username'];
-            
-            // Send them to the dashboard
-            header("Location: dashboard.php");
-            exit();
+        if ($row = mysqli_fetch_assoc($result)) {
+            // User found, now check if the hashed password matches
+            if (password_verify($password, $row['password'])) {
+                // Success! Store user info in the session
+                $_SESSION['user_id'] = $row['id'];
+                $_SESSION['role'] = $row['role'];
+                $_SESSION['username'] = $row['username'];
+                
+                mysqli_stmt_close($stmt); // Good memory cleanup
+                
+                // Send them to the dashboard
+                header("Location: dashboard.php");
+                exit();
+            } else {
+                $error = "Invalid password.";
+            }
         } else {
-            $error = "Invalid password.";
+            $error = "User not found.";
         }
+        
+        // Close the statement if it didn't hit the successful exit
+        mysqli_stmt_close($stmt);
+        
     } else {
-        $error = "User not found.";
+        $error = "System database error.";
     }
 }
 ?>

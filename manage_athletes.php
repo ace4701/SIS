@@ -1,9 +1,8 @@
 <?php
-session_start();
-require 'db_config.php';
+require_once 'auth_guard.php';
 
 // Security check - Only Admin and Staff can manage athletes
-if (!isset($_SESSION['user_id']) || ($_SESSION['role'] != 'admin' && $_SESSION['role'] != 'staff')) {
+if ($_SESSION['role'] != 'admin' && $_SESSION['role'] != 'staff') {
     header("Location: dashboard.php");
     exit();
 }

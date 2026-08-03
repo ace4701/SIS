@@ -1,9 +1,9 @@
 <?php
-session_start();
-require 'db_config.php';
+<?php
+require_once 'auth_guard.php';
 
 // Strict Authorization: ONLY the admin can access this page
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
+if ($_SESSION['role'] !== 'admin') {
     header("Location: dashboard.php");
     exit();
 }

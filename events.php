@@ -1,12 +1,5 @@
 <?php
-session_start();
-require 'db_config.php';
-
-// Everyone can view this page, so we only redirect if they aren't logged in at all
-if (!isset($_SESSION['user_id'])) {
-    header("Location: login.php");
-    exit();
-}
+require_once 'auth_guard.php';
 
 // Fetch all events, ordered by date so the upcoming ones show first
 $query = "SELECT * FROM sports_events ORDER BY event_date ASC";

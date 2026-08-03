@@ -1,9 +1,8 @@
 <?php
-session_start();
-require 'db_config.php';
+require_once 'auth_guard.php';
 
 // Strict Authorization: Only staff/admin can award medals
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] == 'public') {
+if ($_SESSION['role'] == 'public') {
     die("Access Denied.");
 }
 
@@ -13,6 +12,8 @@ $message = "";
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $event_id = (int)$_POST['event_id'];
     $state_name = mysqli_real_escape_string($conn, $_POST['state_name']);
+    
+    // Strict Whitelist Validation for Column Names
     $allowed_medals = ['gold', 'silver', 'bronze'];
     $medal_color = $_POST['medal_color'] ?? '';
 
@@ -20,38 +21,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         die("Access Denied: Invalid medal type specified.");
     }
 
-    // 1. Insert the "Receipt" into event_results
+    // Single source of truth: Insert the "Receipt" into event_results
     $insert_query = "INSERT INTO event_results (event_id, state_name, medal_color) VALUES ('$event_id', '$state_name', '$medal_color')";
     
-    mysqli_begin_transaction($conn);
-
-    try {
-        // 1. Insert the "Receipt" into event_results
-        $insert_query = "INSERT INTO event_results (event_id, state_name, medal_color) VALUES ('$event_id', '$state_name', '$medal_color')";
-        if (!mysqli_query($conn, $insert_query)) {
-            throw new Exception("Failed to insert event result.");
-        }
-
-        // 2. Automatically update the main dashboard tally!
-        $update_query = "UPDATE medals SET $medal_color = $medal_color + 1 WHERE state_name = '$state_name'";
-        if (!mysqli_query($conn, $update_query)) {
-            throw new Exception("Failed to update medal tally.");
-        }
-
-        // If both queries succeed, commit the changes permanently
-        mysqli_commit($conn);
-        $message = "<div style='color: green; text-align: center; margin-bottom: 15px;'>Result successfully recorded and tally updated!</div>";
-
-    } catch (Exception $e) {
-        // If anything fails, roll back the entire transaction instantly
-        mysqli_rollback($conn);
-        $message = "<div style='color: red; text-align: center; margin-bottom: 15px;'>System Error: " . $e->getMessage() . "</div>";
+    if (mysqli_query($conn, $insert_query)) {
+        $message = "<div style='color: green; text-align: center; margin-bottom: 15px;'>Result successfully recorded! Dashboard tally will update automatically.</div>";
+    } else {
+        $message = "<div style='color: red; text-align: center; margin-bottom: 15px;'>Error recording result.</div>";
     }
 }
 
 // Fetch data for the dropdown menus
 $events_result = mysqli_query($conn, "SELECT id, event_name FROM sports_events ORDER BY event_date ASC");
-$states_result = mysqli_query($conn, "SELECT state_name FROM medals ORDER BY state_name ASC");
+// We still fetch states, but pulling distinct states from the events is safer than relying on the old medals table
+$states_result = mysqli_query($conn, "SELECT DISTINCT contingent_state as state_name FROM athletes ORDER BY contingent_state ASC");
 ?>
 
 <!DOCTYPE html>
