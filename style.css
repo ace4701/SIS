@@ -6,7 +6,7 @@ body {
 }
 
 .info-box, .generic-container {
-    background: #ffffff !important; /* Pure white content surface */
+    background: #ffffff; /* Pure white content surface */
     border: 1px solid #e2e8f0; /* Crisp structural border line */
     border-radius: 8px; /* Smooth rounded corners matching your buttons */
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03); /* Soft modern elevation drop shadow */
@@ -103,14 +103,14 @@ input, select { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #c
 /* --- 4. ADVANCED TABLE VISUALS (MEDALS & FLAGS) --- */
 
 /* Tinted Medal Columns */
-.col-gold { background-color: rgba(255, 215, 0, 0.25) !important; color: #b8860b; font-size: 18px; font-weight: 900; }
-.col-silver { background-color: rgba(192, 192, 192, 0.4) !important; color: #495057; font-size: 18px; font-weight: 900; }
-.col-bronze { background-color: rgba(205, 127, 50, 0.2) !important; color: #8b4513; font-size: 18px; font-weight: 900; }
+.col-gold { background-color: rgba(255, 215, 0, 0.25); color: #b8860b; font-size: 18px; font-weight: 900; }
+.col-silver { background-color: rgba(192, 192, 192, 0.4); color: #495057; font-size: 18px; font-weight: 900; }
+.col-bronze { background-color: rgba(205, 127, 50, 0.2); color: #8b4513; font-size: 18px; font-weight: 900; }
 
 /* Darker Headers for the Medals */
-th.col-gold { background-color: #ffc107 !important; color: #856404; text-shadow: 0 1px 0 rgba(255,255,255,0.5); }
-th.col-silver { background-color: #e2e3e5 !important; color: #383d41; }
-th.col-bronze { background-color: #cd7f32 !important; color: white; }
+th.col-gold { background-color: #ffc107; color: #856404; text-shadow: 0 1px 0 rgba(255,255,255,0.5); }
+th.col-silver { background-color: #e2e3e5; color: #383d41; }
+th.col-bronze { background-color: #cd7f32; color: white; }
 
 /* State Name & Flag Styling */
 .state-container { 
@@ -140,7 +140,7 @@ th.col-bronze { background-color: #cd7f32 !important; color: white; }
 .state-cell {
     position: relative;
     overflow: hidden;
-    text-align: left !important;
+    text-align: left;
     vertical-align: middle;
 }
 .state-flag-bg {
