@@ -12,7 +12,14 @@ $message = "";
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $event_name = mysqli_real_escape_string($conn, $_POST['event_name']);
     $venue = mysqli_real_escape_string($conn, $_POST['venue']);
-    $event_date = $_POST['event_date']; // HTML5 date inputs format correctly for MySQL (YYYY-MM-DD)
+    $raw_date = $_POST['event_date'];
+    $parsed_date = DateTime::createFromFormat('Y-m-d', $raw_date);
+
+    if (!$parsed_date || $parsed_date->format('Y-m-d') !== $raw_date) {
+        die("Access Denied: Invalid date format detected.");
+    }
+    
+    $event_date = mysqli_real_escape_string($conn, $raw_date);
 
     $insert_query = "INSERT INTO sports_events (event_name, venue, event_date) VALUES ('$event_name', '$venue', '$event_date')";
     

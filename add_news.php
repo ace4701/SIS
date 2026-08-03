@@ -16,19 +16,38 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $image_paths = []; 
     $uploaded_hashes = []; // To prevent duplicates within the same upload batch
 
+    // AFTER (Patched):
     if (isset($_FILES['news_images']) && !empty($_FILES['news_images']['name'][0])) {
         $target_dir = "uploads/";
+        
+        // Define strict whitelists
+        $allowed_mime_types = ['image/jpeg', 'image/png', 'image/gif'];
+        $allowed_extensions = ['jpg', 'jpeg', 'png', 'gif'];
+        
+        // Initialize PHP's finfo extension to read the actual file signature
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
         
         foreach ($_FILES['news_images']['tmp_name'] as $key => $tmp_name) {
             if ($_FILES['news_images']['error'][$key] == 0) {
                 
+                // SECURITY CHECK 1: Verify actual MIME type from file contents
+                $mime_type = finfo_file($finfo, $tmp_name);
+                if (!in_array($mime_type, $allowed_mime_types)) {
+                    continue; // Silently reject malicious or invalid files
+                }
+                
+                // SECURITY CHECK 2: Verify and sanitize the extension
+                $file_extension = strtolower(pathinfo($_FILES["news_images"]["name"][$key], PATHINFO_EXTENSION));
+                if (!in_array($file_extension, $allowed_extensions)) {
+                    continue; // Silently reject invalid extensions
+                }
+
                 // DUPLICATE PREVENTION: Create a digital fingerprint of the file
                 $file_hash = md5_file($tmp_name);
                 if(in_array($file_hash, $uploaded_hashes)) {
                     continue; // Skip this file, we already uploaded it!
                 }
                 
-                $file_extension = pathinfo($_FILES["news_images"]["name"][$key], PATHINFO_EXTENSION);
                 $new_filename = time() . '_' . rand(1000, 9999) . '.' . $file_extension;
                 $target_file = $target_dir . $new_filename;
                 
@@ -38,6 +57,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 }
             }
         }
+        finfo_close($finfo); // Clean up memory
     }
 
     $image_path_json = !empty($image_paths) ? json_encode($image_paths) : '';

@@ -29,11 +29,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // 2. Handle Deletions of OLD images
     if (isset($_POST['delete_existing'])) {
         foreach ($_POST['delete_existing'] as $del_path) {
-            // Find the image in our array and remove it
-            if (($key = array_search($del_path, $image_paths)) !== false) {
+            
+            // 1. Find the image in our array using STRICT comparison (true)
+            if (($key = array_search($del_path, $image_paths, true)) !== false) {
                 unset($image_paths[$key]);
-                if (file_exists($del_path)) {
-                    unlink($del_path); // Delete the physical file!
+                
+                // SECURITY CHECK: Strip out any traversal characters (e.g., ../)
+                $safe_filename = basename($del_path); 
+                $secure_path = "uploads/" . $safe_filename;
+                
+                // Only delete if the file exists AND the paths strictly match
+                if (file_exists($secure_path) && $secure_path === $del_path) {
+                    unlink($secure_path); // Safely delete the physical file
                 }
             }
         }
