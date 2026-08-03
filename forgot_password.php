@@ -8,17 +8,26 @@ $user_id_to_reset = null;
 
 // Handle Step 1: Verify Username and Email
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['verify_user'])) {
-    $username = mysqli_real_escape_string($conn, $_POST['username']);
-    $email = mysqli_real_escape_string($conn, $_POST['email']);
+    $username = trim($_POST['username']);
+    $email = trim($_POST['email']);
 
-    $query = "SELECT id FROM users WHERE username = '$username' AND email = '$email'";
-    $result = mysqli_query($conn, $query);
+    // 1. Prepared statement for verification
+    $stmt = mysqli_prepare($conn, "SELECT id FROM users WHERE username = ? AND email = ?");
+    
+    if ($stmt) {
+        mysqli_stmt_bind_param($stmt, "ss", $username, $email);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
 
-    if ($row = mysqli_fetch_assoc($result)) {
-        $step = 2; // Identity verified, move to password reset form
-        $user_id_to_reset = $row['id'];
+        if ($row = mysqli_fetch_assoc($result)) {
+            $step = 2; // Identity verified, move to password reset form
+            $user_id_to_reset = $row['id'];
+        } else {
+            $message = "Error: No matching account found with that Username and Email combination.";
+        }
+        mysqli_stmt_close($stmt);
     } else {
-        $message = "Error: No matching account found with that Username and Email combination.";
+        $message = "System database error.";
     }
 }
 
@@ -34,12 +43,24 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['reset_password'])) {
         $user_id_to_reset = $user_id;
     } else {
         $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
-        $update_query = "UPDATE users SET password = '$hashed_password' WHERE id = '$user_id'";
         
-        if (mysqli_query($conn, $update_query)) {
-            $step = 3; // Success state
+        // 2. Prepared statement for the update query
+        $update_stmt = mysqli_prepare($conn, "UPDATE users SET password = ? WHERE id = ?");
+        
+        if ($update_stmt) {
+            // "si" means String (password) and Integer (id)
+            mysqli_stmt_bind_param($update_stmt, "si", $hashed_password, $user_id);
+            
+            if (mysqli_stmt_execute($update_stmt)) {
+                $step = 3; // Success state
+            } else {
+                $message = "Error: Database update failed.";
+                $step = 2;
+                $user_id_to_reset = $user_id;
+            }
+            mysqli_stmt_close($update_stmt);
         } else {
-            $message = "Error: Database update failed.";
+            $message = "System database error.";
             $step = 2;
             $user_id_to_reset = $user_id;
         }

@@ -5,8 +5,8 @@ require 'db_config.php';
 $message = "";
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $username = mysqli_real_escape_string($conn, $_POST['username']);
-    $email = mysqli_real_escape_string($conn, $_POST['email']);
+    $username = trim($_POST['username']);
+    $email = trim($_POST['email']);
     $password = $_POST['password'];
     $confirm_password = $_POST['confirm_password'];
 
@@ -14,24 +14,39 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if ($password !== $confirm_password) {
         $message = "Passwords do not match.";
     } else {
-        // 2. Check if username or email already exists
-        $check_query = "SELECT * FROM users WHERE username = '$username' OR email = '$email'";
-        $check_result = mysqli_query($conn, $check_query);
+        // 2. Check if username or email already exists using a Prepared Statement
+        $check_stmt = mysqli_prepare($conn, "SELECT id FROM users WHERE username = ? OR email = ?");
+        
+        if ($check_stmt) {
+            mysqli_stmt_bind_param($check_stmt, "ss", $username, $email);
+            mysqli_stmt_execute($check_stmt);
+            mysqli_stmt_store_result($check_stmt);
 
-        if (mysqli_num_rows($check_result) > 0) {
-            $message = "Username or Email already taken.";
-        } else {
-            // 3. Hash the password and insert the new PUBLIC user
-            $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-            $role = 'public'; // Default role for self-registration
-
-            $insert_query = "INSERT INTO users (username, email, password, role) VALUES ('$username', '$email', '$hashed_password', '$role')";
-            
-            if (mysqli_query($conn, $insert_query)) {
-                $message = "Registration successful! You can now login.";
+            if (mysqli_stmt_num_rows($check_stmt) > 0) {
+                $message = "Username or Email already taken.";
             } else {
-                $message = "Error: Could not register user.";
+                // 3. Hash the password and insert the new PUBLIC user using a Prepared Statement
+                $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+                $role = 'public'; // Default role for self-registration
+
+                $insert_stmt = mysqli_prepare($conn, "INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)");
+                
+                if ($insert_stmt) {
+                    mysqli_stmt_bind_param($insert_stmt, "ssss", $username, $email, $hashed_password, $role);
+                    
+                    if (mysqli_stmt_execute($insert_stmt)) {
+                        $message = "Registration successful! You can now login.";
+                    } else {
+                        $message = "Error: Could not register user.";
+                    }
+                    mysqli_stmt_close($insert_stmt);
+                } else {
+                    $message = "System error during registration.";
+                }
             }
+            mysqli_stmt_close($check_stmt);
+        } else {
+            $message = "System database error.";
         }
     }
 }
