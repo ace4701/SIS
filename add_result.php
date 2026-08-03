@@ -13,19 +13,39 @@ $message = "";
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $event_id = (int)$_POST['event_id'];
     $state_name = mysqli_real_escape_string($conn, $_POST['state_name']);
-    $medal_color = mysqli_real_escape_string($conn, $_POST['medal_color']);
+    $allowed_medals = ['gold', 'silver', 'bronze'];
+    $medal_color = $_POST['medal_color'] ?? '';
+
+    if (!in_array($medal_color, $allowed_medals, true)) {
+        die("Access Denied: Invalid medal type specified.");
+    }
 
     // 1. Insert the "Receipt" into event_results
     $insert_query = "INSERT INTO event_results (event_id, state_name, medal_color) VALUES ('$event_id', '$state_name', '$medal_color')";
     
-    if (mysqli_query($conn, $insert_query)) {
+    mysqli_begin_transaction($conn);
+
+    try {
+        // 1. Insert the "Receipt" into event_results
+        $insert_query = "INSERT INTO event_results (event_id, state_name, medal_color) VALUES ('$event_id', '$state_name', '$medal_color')";
+        if (!mysqli_query($conn, $insert_query)) {
+            throw new Exception("Failed to insert event result.");
+        }
+
         // 2. Automatically update the main dashboard tally!
         $update_query = "UPDATE medals SET $medal_color = $medal_color + 1 WHERE state_name = '$state_name'";
-        mysqli_query($conn, $update_query);
-        
+        if (!mysqli_query($conn, $update_query)) {
+            throw new Exception("Failed to update medal tally.");
+        }
+
+        // If both queries succeed, commit the changes permanently
+        mysqli_commit($conn);
         $message = "<div style='color: green; text-align: center; margin-bottom: 15px;'>Result successfully recorded and tally updated!</div>";
-    } else {
-        $message = "<div style='color: red; text-align: center; margin-bottom: 15px;'>Error recording result.</div>";
+
+    } catch (Exception $e) {
+        // If anything fails, roll back the entire transaction instantly
+        mysqli_rollback($conn);
+        $message = "<div style='color: red; text-align: center; margin-bottom: 15px;'>System Error: " . $e->getMessage() . "</div>";
     }
 }
 

@@ -1,7 +1,29 @@
-body { font-family: Arial, sans-serif; background-color: #f4f7f6; padding: 0; margin: 0; }
+body { 
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f4f7f6; 
+    padding: 0; 
+    margin: 0; 
+}
+
+.info-box, .generic-container {
+    background: #ffffff !important; /* Pure white content surface */
+    border: 1px solid #e2e8f0; /* Crisp structural border line */
+    border-radius: 8px; /* Smooth rounded corners matching your buttons */
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03); /* Soft modern elevation drop shadow */
+    margin-bottom: 25px;
+    overflow: hidden; /* Cleanly masks header bar backgrounds to the rounded corners */
+}
+
+.center-panel {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 25px 20px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
 
 /* --- UPPERMOST HEADER --- */  
-.top-header { display: flex; justify-content: space-between; align-items: center; background: linear-gradient(rgb(255, 60, 60),rgb(255, 255, 60)); color: rgb(0, 0, 0); padding: 15px 30px; }
+.top-header { display: flex; justify-content: space-between; align-items: center; background: linear-gradient(rgb(255, 60, 60),rgb(225, 225, 60)); color: rgb(0, 0, 0); padding: 15px 30px; }
 .top-header h2 { margin: 0; font-size: 22px; letter-spacing: 1px; }
 .user-controls { display: flex; align-items: center; gap: 15px; font-size: 14px; }
 .btn-help { background-color: #ffc107; color: black; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; }
@@ -59,7 +81,6 @@ body { font-family: Arial, sans-serif; background-color: #f4f7f6; padding: 0; ma
 /* Dashboard 3-Column Layout */
 .dashboard-wrapper { display: flex; gap: 20px; align-items: flex-start; }
 .side-panel { flex: 1; display: flex; flex-direction: column; gap: 15px; }
-.center-panel { flex: 2.5; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
 .info-box { background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow: hidden; }
 .info-header { padding: 15px; color: white; font-weight: bold; text-align: center; margin: 0; }
 

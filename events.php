@@ -48,42 +48,36 @@ $result = mysqli_query($conn, $query);
     </div>
 
     <table>
-            <thead>
-                <tr>
-                    <th>Event Name</th>
-                    <th>Venue</th>
-                    <th>Participants</th> <th class="center">Date</th>
-                </tr>
-            </thead>
-            <tbody id="events-table-body">
-                <?php 
-                mysqli_data_seek($events_result, 0);
-                while($event = mysqli_fetch_assoc($events_result)) { 
-                    
-                    // Decode the JSON array from the database
-                    $participants_text = "<span style='color:#aaa;'>TBD</span>";
-                    if (!empty($event['participating_states'])) {
-                        $states_array = json_decode($event['participating_states'], true);
-                        
-                        if (is_array($states_array) && count($states_array) > 0) {
-                            if (count($states_array) == 2) {
-                                // 1v1 Format styling
-                                $participants_text = "<span style='color:#da251d; font-weight:bold;'>" . $states_array[0] . "</span> <span style='font-size:11px; color:#777; margin:0 5px;'>vs</span> <span style='color:#0056b3; font-weight:bold;'>" . $states_array[1] . "</span>";
-                            } else {
-                                // Group Format styling
-                                $participants_text = implode(', ', $states_array);
-                            }
-                        }
-                    }
-                ?>
-                <tr>
-                    <td><strong><?php echo $event['event_name']; ?></strong></td>
-                    <td><?php echo $event['venue']; ?></td>
-                    <td style="font-size: 14px; line-height: 1.5;"><?php echo $participants_text; ?></td> <td class="center"><?php echo date('d M Y', strtotime($event['event_date'])); ?></td>
-                </tr>
-                <?php } ?>
-            </tbody>
-        </table>
+        <thead>
+            <tr>
+                <th>No.</th>
+                <th>Event Name</th>
+                <th>Venue</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php 
+            $count = 1;
+            if(mysqli_num_rows($result) > 0) {
+                while($row = mysqli_fetch_assoc($result)) { 
+                    // Format the date to look nice (e.g., 24 Aug 2026)
+                    $formatted_date = date('d M Y', strtotime($row['event_date']));
+            ?>
+            <tr>
+                <td><?php echo $count++; ?></td>
+                <td><strong><?php echo $row['event_name']; ?></strong></td>
+                <td><?php echo $row['venue']; ?></td>
+                <td><?php echo $formatted_date; ?></td>
+            </tr>
+            <?php 
+                } 
+            } else {
+                echo "<tr><td colspan='4' style='text-align:center;'>No events scheduled yet.</td></tr>";
+            }
+            ?>
+        </tbody>
+    </table>
 </div>
 
 </body>

@@ -27,6 +27,82 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_user'])) {
     }
 }
 
+// --- NEW ATHLETE MANAGEMENT LOGIC (PRG PATTERN FIX) ---
+$athlete_msg = "";
+
+// 1. CATCH THE MESSAGE: If a message survived the redirect, grab it and clear it.
+if (isset($_SESSION['athlete_msg'])) {
+    $athlete_msg = $_SESSION['athlete_msg'];
+    unset($_SESSION['athlete_msg']); // Clear it so it only shows once!
+}
+
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action'])) {
+    // Only Admin & Staff can do this
+    if ($_SESSION['role'] == 'admin' || $_SESSION['role'] == 'staff') {
+        
+        if ($_POST['action'] == 'add_athlete') {
+            $name = mysqli_real_escape_string($conn, strtoupper($_POST['full_name']));
+            $state = mysqli_real_escape_string($conn, $_POST['contingent_state']);
+            $gender = mysqli_real_escape_string($conn, $_POST['gender']);
+
+            if (mysqli_query($conn, "INSERT INTO athletes (full_name, contingent_state, gender) VALUES ('$name', '$state', '$gender')")) {
+                // 2. Save the success message to the session
+                $_SESSION['athlete_msg'] = "<div style='color: white; background: #28a745; padding: 10px; border-radius: 4px; margin-bottom: 15px; text-align: center; font-weight: bold;'>✅ Athlete '$name' registered!</div>";
+                // 3. REDIRECT to wipe the POST memory from the browser
+                header("Location: dashboard.php");
+                exit();
+            }
+        
+        } elseif ($_POST['action'] == 'edit_athlete') {
+            $id = (int)$_POST['athlete_id'];
+            $name = mysqli_real_escape_string($conn, strtoupper($_POST['full_name']));
+            $state = mysqli_real_escape_string($conn, $_POST['contingent_state']);
+            $gender = mysqli_real_escape_string($conn, $_POST['gender']);
+
+            if (mysqli_query($conn, "UPDATE athletes SET full_name='$name', contingent_state='$state', gender='$gender' WHERE id=$id")) {
+                $_SESSION['athlete_msg'] = "<div style='color: white; background: #0056b3; padding: 10px; border-radius: 4px; margin-bottom: 15px; text-align: center; font-weight: bold;'>✏️ Athlete '$name' updated!</div>";
+                header("Location: dashboard.php");
+                exit();
+            }
+
+        } elseif ($_POST['action'] == 'delete_athlete') {
+            $id = (int)$_POST['athlete_id'];
+            if (mysqli_query($conn, "DELETE FROM athletes WHERE id = $id")) {
+                $_SESSION['athlete_msg'] = "<div style='color: white; background: #dc3545; padding: 10px; border-radius: 4px; margin-bottom: 15px; text-align: center; font-weight: bold;'>🗑️ Athlete removed.</div>";
+                header("Location: dashboard.php");
+                exit();
+            }
+
+        } elseif ($_POST['action'] == 'import_csv') {
+            if (isset($_FILES['csv_file']) && $_FILES['csv_file']['error'] == 0) {
+                $file = $_FILES['csv_file']['tmp_name'];
+                $handle = fopen($file, "r");
+                $count = 0;
+                
+                fgetcsv($handle); // Skip the first row (Header)
+                
+                // Loop through every row in the Excel/CSV file
+                while (($data = fgetcsv($handle, 1000, ",")) !== FALSE) {
+                    if (count($data) >= 3) {
+                        $name = mysqli_real_escape_string($conn, strtoupper(trim($data[0])));
+                        $state = mysqli_real_escape_string($conn, trim($data[1]));
+                        $gender = mysqli_real_escape_string($conn, trim($data[2]));
+                        
+                        if (!empty($name) && !empty($state)) {
+                            mysqli_query($conn, "INSERT INTO athletes (full_name, contingent_state, gender) VALUES ('$name', '$state', '$gender')");
+                            $count++;
+                        }
+                    }
+                }
+                fclose($handle);
+                $_SESSION['athlete_msg'] = "<div style='color: white; background: #17a2b8; padding: 10px; border-radius: 4px; margin-bottom: 15px; text-align: center; font-weight: bold;'>📁 Successfully imported $count athletes!</div>";
+                header("Location: dashboard.php");
+                exit();
+            }
+        }
+    }
+}
+
 // Fetch Data Queries
 $events_result = mysqli_query($conn, "SELECT * FROM sports_events ORDER BY CASE WHEN match_status = 'Completed' THEN 2 ELSE 1 END, event_date ASC");
 $news_result = mysqli_query($conn, "SELECT id, title, content, author, created_at FROM news ORDER BY created_at DESC");
@@ -34,7 +110,7 @@ $users_result = mysqli_query($conn, "SELECT id, username, email, role, created_a
 $sports_query = mysqli_query($conn, "SELECT sport_name, format_type FROM sports_list ORDER BY sport_name ASC");
 $venues_query = mysqli_query($conn, "SELECT venue_name FROM venues_list ORDER BY venue_name ASC");
 $phases_query = mysqli_query($conn, "SELECT phase_name FROM match_phases ORDER BY phase_order ASC");
-
+$athletes_query = mysqli_query($conn, "SELECT * FROM athletes ORDER BY contingent_state ASC, gender ASC, full_name ASC");    
 
 $all_states = [
     'JOHOR' => ['gold' => 0, 'silver' => 0, 'bronze' => 0],
@@ -56,11 +132,19 @@ $all_states = [
 $tally_query = "
     SELECT UPPER(state_name) as state_name, SUM(gold) as gold_count, SUM(silver) as silver_count, SUM(bronze) as bronze_count
     FROM (
-        SELECT gold_winner as state_name, 1 as gold, 0 as silver, 0 as bronze FROM sports_events WHERE match_status = 'Completed' AND gold_winner IS NOT NULL AND gold_winner != ''
+        SELECT gold_winner as state_name, 1 as gold, 0 as silver, 0 as bronze 
+        FROM sports_events 
+        WHERE match_status = 'Completed' AND gold_winner IS NOT NULL AND gold_winner != ''
         UNION ALL
-        SELECT silver_winner as state_name, 0 as gold, 1 as silver, 0 as bronze FROM sports_events WHERE match_status = 'Completed' AND silver_winner IS NOT NULL AND silver_winner != ''
+
+        SELECT silver_winner as state_name, 0 as gold, 1 as silver, 0 as bronze 
+        FROM sports_events 
+        WHERE match_status = 'Completed' AND silver_winner IS NOT NULL AND silver_winner != ''
         UNION ALL
-        SELECT bronze_winner as state_name, 0 as gold, 0 as silver, 1 as bronze FROM sports_events WHERE match_status = 'Completed' AND bronze_winner IS NOT NULL AND bronze_winner != ''
+
+        SELECT bronze_winner as state_name, 0 as gold, 0 as silver, 1 as bronze 
+        FROM sports_events 
+        WHERE match_status = 'Completed' AND bronze_winner IS NOT NULL AND bronze_winner != ''
     ) as medal_data
     GROUP BY state_name
 ";
@@ -109,6 +193,32 @@ foreach($top_5_states as $state => $data) {
     $silvers[] = $data['silver'];
     $bronzes[] = $data['bronze'];
 }
+
+// --- NEW: UI POLISH METRICS & TICKER DATA ---
+// 1. Total Athletes
+$total_athletes_query = mysqli_query($conn, "SELECT COUNT(*) as count FROM athletes");
+$total_athletes = $total_athletes_query ? mysqli_fetch_assoc($total_athletes_query)['count'] : 0;
+
+// 2. Upcoming Matches
+$upcoming_matches_query = mysqli_query($conn, "SELECT COUNT(*) as count FROM sports_events WHERE match_status != 'Completed'");
+$upcoming_matches = $upcoming_matches_query ? mysqli_fetch_assoc($upcoming_matches_query)['count'] : 0;
+
+// 3. Total Gold Medals Awarded
+$total_golds_awarded = 0;
+foreach($all_states as $state_data) {
+    $total_golds_awarded += $state_data['gold'];
+}
+
+// 4. Live Ticker Data
+$latest_news = mysqli_fetch_assoc(mysqli_query($conn, "SELECT title FROM news ORDER BY created_at DESC LIMIT 1"));
+$latest_match = mysqli_fetch_assoc(mysqli_query($conn, "SELECT event_name, gold_winner FROM sports_events WHERE match_status = 'Completed' AND gold_winner != '' ORDER BY id DESC LIMIT 1"));
+
+$ticker_text = "🟢 SYSTEM LIVE ACTIVE  |  ";
+if ($latest_news) $ticker_text .= "📰 LATEST NEWS: " . strtoupper(htmlspecialchars($latest_news['title'])) . "  |  ";
+if ($latest_match) $ticker_text .= "🏆 BREAKING RESULT: " . strtoupper(htmlspecialchars($latest_match['gold_winner'])) . " secures Gold in " . strtoupper(htmlspecialchars($latest_match['event_name'])) . "!  |  ";
+
+// 5. Activity Stream (Last 4 Completed Matches)
+$recent_activities = mysqli_query($conn, "SELECT event_name, match_phase, gold_winner FROM sports_events WHERE match_status = 'Completed' ORDER BY id DESC LIMIT 4");
 ?>
 
 <!DOCTYPE html>
@@ -133,18 +243,71 @@ foreach($top_5_states as $state => $data) {
     </div>
 </div>
 
+<style>
+    .ticker-wrap { width: 100%; background: #c5413a; color: #ffffff; padding: 10px 0; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-bottom: 2px solid #b01c15; }
+    .ticker { display: inline-block; white-space: nowrap; padding-right: 100%; animation: ticker 30s linear infinite; font-weight: 600; font-size: 13px; letter-spacing: 0.5px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    .ticker-highlight { color: #ffdf00; font-weight: 900; text-shadow: 1px 1px 2px rgba(0,0,0,0.15); }
+    
+    /* This is the engine that makes it scroll! */
+    @keyframes ticker { 
+        0% { transform: translate3d(100%, 0, 0); } 
+        100% { transform: translate3d(-100%, 0, 0); } 
+    }
+</style>
+<?php
+// Formatting the ticker text beautifully for a red background
+$ticker_text = "<span class='ticker-highlight'>⚡ LIVE UPDATE</span> &nbsp;&nbsp;|&nbsp;&nbsp; ";
+if ($latest_news) $ticker_text .= "📰 <span style='color: #ffcccc;'>LATEST NEWS:</span> " . strtoupper(htmlspecialchars($latest_news['title'])) . " &nbsp;&nbsp;|&nbsp;&nbsp; ";
+if ($latest_match) $ticker_text .= "🏆 <span style='color: #ffcccc;'>BREAKING:</span> <span class='ticker-highlight'>" . strtoupper(htmlspecialchars($latest_match['gold_winner'])) . "</span> secures Gold in " . strtoupper(htmlspecialchars($latest_match['event_name'])) . "! &nbsp;&nbsp;|&nbsp;&nbsp; ";
+?>
+<div class="ticker-wrap">
+    <div class="ticker"><?php echo $ticker_text; ?></div>
+</div>
+
 <div class="tab-container">
     <button class="chrome-tab" onclick="openTab(event, 'Dashboard')" id="defaultOpen">Dashboard</button>
     <button class="chrome-tab" onclick="openTab(event, 'News')">News</button>
     <button class="chrome-tab" onclick="openTab(event, 'Events')">Events Schedule</button>
-    <button class="chrome-tab" onclick="openTab(event, 'Analytics')">Analytics</button>
     
+    <?php if($_SESSION['role'] == 'admin' || $_SESSION['role'] == 'staff'): ?>
+        <button class="chrome-tab" onclick="openTab(event, 'Athletes')">Manage Athletes</button>
+    <?php endif; ?>
+
     <?php if($_SESSION['role'] == 'admin'): ?>
         <button class="chrome-tab" onclick="openTab(event, 'ManageUsers')">Manage Users</button>
     <?php endif; ?>
 </div>
 
 <div id="Dashboard" class="tab-content">
+
+    <div style="display: flex; gap: 20px; margin: 20px;">
+        
+        <div style="flex: 1; background: white; border-radius: 8px; border-left: 5px solid #0056b3; padding: 20px 25px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); display: flex; align-items: center; justify-content: space-between; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform='translateY(0)'">
+            <div>
+                <div style="font-size: 12px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 1px;">Total Athletes</div>
+                <div style="font-size: 32px; font-weight: 800; color: #222; margin-top: 5px;"><?php echo $total_athletes; ?></div>
+            </div>
+            <div style="font-size: 35px; opacity: 0.8;">🪪</div>
+        </div>
+        
+        <div style="flex: 1; background: white; border-radius: 8px; border-left: 5px solid #28a745; padding: 20px 25px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); display: flex; align-items: center; justify-content: space-between; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform='translateY(0)'">
+            <div>
+                <div style="font-size: 12px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 1px;">Upcoming Matches</div>
+                <div style="font-size: 32px; font-weight: 800; color: #222; margin-top: 5px;"><?php echo $upcoming_matches; ?></div>
+            </div>
+            <div style="font-size: 35px; opacity: 0.8;">⏳</div>
+        </div>
+        
+        <div style="flex: 1; background: white; border-radius: 8px; border-left: 5px solid #d4af37; padding: 20px 25px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); display: flex; align-items: center; justify-content: space-between; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform='translateY(0)'">
+            <div>
+                <div style="font-size: 12px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 1px;">Golds Awarded</div>
+                <div style="font-size: 32px; font-weight: 800; color: #222; margin-top: 5px;"><?php echo $total_golds_awarded; ?> <span style="font-size: 14px; color: #aaa; font-weight: 600;">medals</span></div>
+            </div>
+            <div style="font-size: 35px; opacity: 0.8;">🏆</div>
+        </div>
+        
+    </div> 
+
     <div class="dashboard-wrapper">
         
         <div class="side-panel">
@@ -164,9 +327,114 @@ foreach($top_5_states as $state => $data) {
                     <?php } ?>
                 </div>
             </div>
+
+            <div class="info-box" style="margin-top: 25px;">
+                <h4 class="info-header" style="background-color: #e73434;">⚡ Live Activity Stream</h4>
+                <div style="padding: 20px 15px; max-height: 280px; overflow-y: auto; background: #fff;">
+                    
+                    <?php if($recent_activities && mysqli_num_rows($recent_activities) > 0): ?>
+                        <?php while($activity = mysqli_fetch_assoc($recent_activities)): ?>
+                            <div style="border-left: 3px solid #0056b3; padding-left: 15px; margin-bottom: 20px; position: relative;">
+                                <div style="position: absolute; left: -7px; top: 0; width: 11px; height: 11px; background: #0056b3; border-radius: 50%; border: 2px solid white;"></div>
+                                <div style="font-size: 11px; color: #888; font-weight: bold; text-transform: uppercase;">Recent Action</div>
+                                <div style="font-size: 13px; color: #333; margin-top: 4px; line-height: 1.4;">
+                                    Result confirmed for <strong><?php echo $activity['event_name']; ?></strong> (<?php echo $activity['match_phase']; ?>).
+                                    <?php if($activity['gold_winner']): ?>
+                                        <br><span style="color: #da251d; font-weight: bold;">🏅 <?php echo strtoupper($activity['gold_winner']); ?></span> took the victory!
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        <?php endwhile; ?>
+                    <?php endif; ?>
+                    
+                    <div style="border-left: 3px solid #28a745; padding-left: 15px; position: relative;">
+                        <div style="position: absolute; left: -7px; top: 0; width: 11px; height: 11px; background: #28a745; border-radius: 50%; border: 2px solid white;"></div>
+                        <div style="font-size: 11px; color: #888; font-weight: bold; text-transform: uppercase;">System Node</div>
+                        <div style="font-size: 13px; color: #333; margin-top: 4px;">Database synchronized successfully. Listening for live updates...</div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- VENUE WEATHER & CONDITIONS WIDGET -->
+            <div class="info-box" style="margin-top: 25px;">
+                <h4 class="info-header" style="background-color: #343a40; border-top: 3px solid #4facfe; color: white;">🌤️ Venue Conditions</h4>
+                
+                <!-- Main Weather Display -->
+                <div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); padding: 20px; color: white; text-align: center;">
+                    <div style="font-size: 14px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px;">Kuching, Sarawak</div>
+                    <div style="font-size: 11px; opacity: 0.9; margin-bottom: 15px;">Main Stadium & Aquatics Center</div>
+
+                    <div style="display: flex; justify-content: center; align-items: center; gap: 15px;">
+                        <div style="font-size: 48px; line-height: 1; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.2));">⛅</div>
+                        <div style="text-align: left;">
+                            <div style="font-size: 36px; font-weight: 800; line-height: 1;">31°C</div>
+                            <div style="font-size: 13px; font-weight: 600; opacity: 0.9;">Partly Cloudy</div>
+                        </div>
+                    </div>
+
+                    <!-- Sports Metrics Bottom Bar -->
+                    <div style="display: flex; justify-content: space-between; margin-top: 20px; font-size: 12px; background: rgba(0,0,0,0.15); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2);">
+                        <div style="flex: 1; text-align: center; border-right: 1px solid rgba(255,255,255,0.2);">
+                            <div style="opacity: 0.8; margin-bottom: 3px;">Humidity</div>
+                            <div style="font-weight: bold; font-size: 14px;">78%</div>
+                        </div>
+                        <div style="flex: 1; text-align: center; border-right: 1px solid rgba(255,255,255,0.2);">
+                            <div style="opacity: 0.8; margin-bottom: 3px;">Wind</div>
+                            <div style="font-weight: bold; font-size: 14px;">12 km/h</div>
+                        </div>
+                        <div style="flex: 1; text-align: center;">
+                            <div style="opacity: 0.8; margin-bottom: 3px;">Visibility</div>
+                            <div style="font-weight: bold; font-size: 14px;">Clear</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Quick Status Banner -->
+                <div style="padding: 10px; text-align: center; font-size: 11px; color: #155724; background-color: #d4edda; border-top: 1px solid #c3e6cb; font-weight: bold;">
+                    🟢 All outdoor events proceeding as scheduled.
+                </div>
+            </div>
+            
         </div>
 
         <div class="center-panel">
+
+            <!-- UPGRADED INTEGRATED ANALYTICS CHART -->
+            <div style="margin-top: 40px; background: white; padding: 25px 20px 10px 20px; border-radius: 8px; border-top: 4px solid #343a40; box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                    <h3 id="analytics_chart_title" style="margin: 0; color: #333; font-size: 16px; text-transform: uppercase; letter-spacing: 1px;">📊 Top 5 Contingents</h3>
+                    
+                    <div style="display: flex; gap: 10px;">
+                        <!-- THE NEW SPORT DOMINANCE FILTER -->
+                        <select id="analytics_sport_filter" onchange="updateSportDominance()" style="padding: 6px 12px; border: 1px solid #ccc; border-radius: 20px; font-size: 13px; font-weight: bold; color: #0056b3; outline: none; cursor: pointer; background: #e6f2ff;">
+                            <option value="ALL">All Sports</option>
+                            <?php 
+                            mysqli_data_seek($sports_query, 0); 
+                            while($sport = mysqli_fetch_assoc($sports_query)) {
+                                echo "<option value='" . htmlspecialchars($sport['sport_name']) . "'>" . $sport['sport_name'] . "</option>"; 
+                            }
+                            ?>
+                        </select>
+
+                        <!-- THE EXISTING CONTINGENT DEEP DIVE FILTER -->
+                        <select id="analytics_state_filter" onchange="updateAnalyticsChart()" style="padding: 6px 12px; border: 1px solid #ccc; border-radius: 20px; font-size: 13px; font-weight: bold; color: #333; outline: none; cursor: pointer; background: #f8f9fa;">
+                            <option value="ALL">Overview (Top 5 States)</option>
+                            <?php foreach(array_keys($all_states) as $s): ?>
+                                <option value="<?php echo htmlspecialchars($s); ?>"><?php echo htmlspecialchars($s); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <button onclick="viewEfficiency()" style="padding: 6px 15px; background: #28a745; color: white; border: none; border-radius: 20px; font-size: 13px; font-weight: bold; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                            ⚖️ Efficiency ROI
+                        </button>
+                </div>
+
+                <div style="width: 100%; margin: 0 auto; position: relative; height: 280px; display: flex; justify-content: center;">
+                    <canvas id="medalChart"></canvas>
+                </div>
+            </div>
+
             <h3 style="margin-top: 0; text-align: center;">Official Medal Tally</h3>
             <table>
                 <thead>
@@ -197,15 +465,36 @@ foreach($top_5_states as $state => $data) {
                             <div class="state-name-text"><?php echo strtoupper($state_name); ?></div>
                         </td>
                         
-                        <td class="center col-gold"><?php echo $medals['gold']; ?></td>
-                        <td class="center col-silver"><?php echo $medals['silver']; ?></td>
-                        <td class="center col-bronze"><?php echo $medals['bronze']; ?></td>
-                        
-                        <td class="center" style="font-size: 18px;"><strong><?php echo $total; ?></strong></td>
+                        <td class="center col-gold">
+                            <?php if($medals['gold'] > 0): ?>
+                                <a href="#" onclick="openMedalWinnersModal('<?php echo addslashes($state_name); ?>', 'gold'); return false;" style="background: #fffdf5; border: 1px solid #ffecb3; color: #d4af37; padding: 4px 14px; border-radius: 20px; font-weight: bold; text-decoration: none; display: inline-block; box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: all 0.2s;" onmouseover="this.style.background='#d4af37'; this.style.color='#fff';" onmouseout="this.style.background='#fffdf5'; this.style.color='#d4af37';"><?php echo $medals['gold']; ?></a>
+                            <?php else: echo "<span style='color: #ccc;'>0</span>"; endif; ?>
+                        </td>
+
+                        <td class="center col-silver">
+                            <?php if($medals['silver'] > 0): ?>
+                                <a href="#" onclick="openMedalWinnersModal('<?php echo addslashes($state_name); ?>', 'silver'); return false;" style="background: #f8f9fa; border: 1px solid #ddd; color: #777; padding: 4px 14px; border-radius: 20px; font-weight: bold; text-decoration: none; display: inline-block; box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: all 0.2s;" onmouseover="this.style.background='#777'; this.style.color='#fff';" onmouseout="this.style.background='#f8f9fa'; this.style.color='#777';"><?php echo $medals['silver']; ?></a>
+                            <?php else: echo "<span style='color: #ccc;'>0</span>"; endif; ?>
+                        </td>
+
+                        <td class="center col-bronze">
+                            <?php if($medals['bronze'] > 0): ?>
+                                <a href="#" onclick="openMedalWinnersModal('<?php echo addslashes($state_name); ?>', 'bronze'); return false;" style="background: #fdf6f2; border: 1px solid #f5d0b5; color: #cd7f32; padding: 4px 14px; border-radius: 20px; font-weight: bold; text-decoration: none; display: inline-block; box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: all 0.2s;" onmouseover="this.style.background='#cd7f32'; this.style.color='#fff';" onmouseout="this.style.background='#fdf6f2'; this.style.color='#cd7f32';"><?php echo $medals['bronze']; ?></a>
+                            <?php else: echo "<span style='color: #ccc;'>0</span>"; endif; ?>
+                        </td>
+
+                        <td class="center" style="font-size: 18px;">
+                            <strong>
+                                <?php if($total > 0): ?>
+                                    <a href="#" onclick="openMedalWinnersModal('<?php echo addslashes($state_name); ?>', 'total'); return false;" style="background: #e6f2ff; border: 1px solid #b3d7ff; color: #0056b3; padding: 4px 16px; border-radius: 6px; text-decoration: none; display: inline-block; transition: all 0.2s;" onmouseover="this.style.background='#0056b3'; this.style.color='#fff';" onmouseout="this.style.background='#e6f2ff'; this.style.color='#0056b3';"><?php echo $total; ?></a>
+                                <?php else: echo "<span style='color: #ccc;'>0</span>"; endif; ?>
+                            </strong>
+                        </td>
                     </tr>
                     <?php } ?>
                 </tbody>
             </table>
+
         </div>
 
         <div class="side-panel">
@@ -225,6 +514,81 @@ foreach($top_5_states as $state => $data) {
                     <?php } ?>
                 </div>
             </div>
+            
+            <!-- SYSTEM NOTES & QUICK NAVIGATION GUIDE -->
+            <div class="info-box" style="margin-top: 25px;">
+                <h4 class="info-header" style="background-color: #343a40; border-top: 3px solid #0056b3; color: white;">💡 System Guide & Notes</h4>
+                <div style="padding: 15px; background: #fff; font-size: 13px; line-height: 1.5; color: #444;">
+                    
+                    <!-- General Navigation Tips for Everyone -->
+                    <div style="margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px dashed #eee;">
+                        <span style="font-weight: bold; color: #da251d;">🔍 Interactive Data:</span> 
+                        Click on any number greater than zero in the <strong>Medal Tally</strong> table to open up the deep-dive athlete roster for that specific state achievement.
+                    </div>
+
+                    <?php if($_SESSION['role'] == 'admin'): ?>
+                        <!-- Admin Specific Operational Guide Notes -->
+                        <div style="background: #f1f7fc; border-left: 3px solid #0056b3; padding: 10px; border-radius: 0 4px 4px 0;">
+                            <strong style="color: #0056b3; display: block; margin-bottom: 4px;">🛠️ Administrator Workflow:</strong>
+                            <ul style="margin: 0; padding-left: 18px; font-size: 12px; color: #555;">
+                                <li style="margin-bottom: 4px;">Use the <strong style="color: #333;">Manage Users</strong> tab to provision credentials for incoming field officials.</li>
+                                <li style="margin-bottom: 4px;">To link an athlete to a live event roster, navigate to <strong style="color: #333;">Manage Athletes</strong> and click the 📅 icon.</li>
+                                <li>The ⚙️ filter in <strong style="color: #333;">Events Schedule</strong> allows multi-tiered compound sorting across venues, phases, and dates.</li>
+                            </ul>
+                        </div>
+                    <?php elseif($_SESSION['role'] == 'staff'): ?>
+                        <!-- Staff Specific Operational Guide Notes -->
+                        <div style="background: #f4faf6; border-left: 3px solid #28a745; padding: 10px; border-radius: 0 4px 4px 0;">
+                            <strong style="color: #28a745; display: block; margin-bottom: 4px;">📋 Official Duties Checklist:</strong>
+                            <ul style="margin: 0; padding-left: 18px; font-size: 12px; color: #555;">
+                                <li style="margin-bottom: 4px;">Go to <strong style="color: #333;">Events Schedule</strong> and click the 🏆 trophy icon to submit validated medal match results.</li>
+                                <li style="margin-bottom: 4px;">Utilize the bulk CSV tool to swiftly import entire contingent clusters simultaneously.</li>
+                                <li>Toggle <strong style="color: #333;">Hide Completed</strong> to separate real-time ongoing brackets from finalized records.</li>
+                            </ul>
+                        </div>
+                    <?php endif; ?>
+
+                    <div style="margin-top: 12px; font-size: 11px; text-align: center; color: #999; font-style: italic;">
+                        Secured Session Node: <?php echo strtoupper($_SESSION['role']); ?> Mode
+                    </div>
+                </div>
+            </div>
+
+            <!-- HIGHLIGHTS CAROUSEL -->
+            <div class="info-box" style="margin-top: 25px;">
+                <h4 class="info-header" style="background-color: #343a40; border-top: 3px solid #ffdf00; color: white;">📸 Official Highlights</h4>
+                <div style="position: relative; width: 100%; height: 200px; overflow: hidden; background: #eee;">
+                    <style>
+                        .fade-slide { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; animation: fade 12s infinite; }
+                        .fade-slide:nth-child(1) { animation-delay: 0s; }
+                        .fade-slide:nth-child(2) { animation-delay: 4s; }
+                        .fade-slide:nth-child(3) { animation-delay: 8s; }
+                        .fade-slide:nth-child(4) { animation-delay: 12s; }
+                        .fade-slide:nth-child(5) { animation-delay: 16s; }
+                        .fade-slide:nth-child(6) { animation-delay: 20s; }
+                        .fade-slide:nth-child(7) { animation-delay: 24s; }
+                        .fade-slide:nth-child(8) { animation-delay: 28s; }
+                        .fade-slide:nth-child(9) { animation-delay: 32s; }
+                        .fade-slide:nth-child(10) { animation-delay: 36s; }
+                        @keyframes fade { 0%, 100% { opacity: 0; } 10%, 33% { opacity: 1; } 43% { opacity: 0; } }
+                    </style>
+                    
+                    <img src="assets/IMG_1291.jpg" class="fade-slide" alt="Action 1" onerror="this.src='https://via.placeholder.com/400x200?text=Highlight+1'">
+                    <img src="assets/IMG_5330.jpg" class="fade-slide" alt="Action 2" onerror="this.src='https://via.placeholder.com/400x200?text=Highlight+2'">
+                    <img src="assets/IMG_5527.jpg" class="fade-slide" alt="Action 3" onerror="this.src='https://via.placeholder.com/400x200?text=Highlight+3'">
+                    <img src="assets/IMG_5555.jpg" class="fade-slide" alt="Action 4" onerror="this.src='https://via.placeholder.com/400x200?text=Highlight+4'">
+                    <img src="assets/IMG_5597.jpg" class="fade-slide" alt="Action 5" onerror="this.src='https://via.placeholder.com/400x200?text=Highlight+5'">
+                    <img src="assets/IMG_5632.jpg" class="fade-slide" alt="Action 6" onerror="this.src='https://via.placeholder.com/400x200?text=Highlight+6'">
+                    <img src="assets/IMG_6424.jpg" class="fade-slide" alt="Action 7" onerror="this.src='https://via.placeholder.com/400x200?text=Highlight+7'">
+                    <img src="assets/IMG_6287.jpg" class="fade-slide" alt="Action 8" onerror="this.src='https://via.placeholder.com/400x200?text=Highlight+8'">
+                    <img src="assets/IMG_6206.jpg" class="fade-slide" alt="Action 9" onerror="this.src='https://via.placeholder.com/400x200?text=Highlight+9'">
+                    <img src="assets/IMG_6702.jpg" class="fade-slide" alt="Action 10" onerror="this.src='https://via.placeholder.com/400x200?text=Highlight+10'">
+                </div>
+                <div style="padding: 10px; text-align: center; font-size: 11px; color: #777; font-style: italic; background: white;">
+                    Live from the SUKMA venues
+                </div>
+            </div>
+
         </div>
     </div>
 </div>
@@ -471,8 +835,9 @@ foreach($top_5_states as $state => $data) {
                                 }
                         $participants_html .= "</div>";
 
-                // Add the Venue neatly underneath the flags!
-                $participants_html .= "<div style='text-align: center; font-size: 12px; color: #666; border-top: 1px dashed #eee; padding-top: 5px;'><span style='color: #da251d;'>📍</span> " . htmlspecialchars($event['venue']) . "</div>";
+                        // Add the Venue neatly underneath the flags!
+                        // NEW: View Athletes Button
+                        $participants_html .= "<div style='text-align: center; font-size: 12px; color: #666; border-top: 1px dashed #eee; padding-top: 5px;'><span style='color: #da251d;'>📍</span> " . htmlspecialchars($event['venue']) . "</div>";
             }
         }
 
@@ -511,7 +876,10 @@ foreach($top_5_states as $state => $data) {
             <?php if($event['match_status'] == 'Completed'): ?>
                 
                 <?php if($_SESSION['role'] == 'admin' || $_SESSION['role'] == 'staff'): ?>
-                    <button onclick="openSetResultModal(<?php echo $event['id']; ?>)" style="background: #fff; border: 1px solid #ddd; padding: 8px 15px; border-radius: 25px; display: inline-block; font-size: 15px; font-weight: bold; box-shadow: inset 0 1px 3px rgba(0,0,0,0.05); cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" title="Click to Edit Results">
+                    
+                    <button onclick="openParticipantsModal(<?php echo $event['id']; ?>, '<?php echo addslashes($event['event_name']); ?>', '<?php echo addslashes($event['match_phase']); ?>')" style="background: none; border: none; cursor: pointer; color: #0056b3; font-size: 18px; margin-right: 8px; vertical-align: middle; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'" title="View Athletes">👥</button>
+
+                    <button onclick="openSetResultModal(<?php echo $event['id']; ?>)" style="background: #fff; border: 1px solid #ddd; padding: 8px 15px; border-radius: 25px; display: inline-block; font-size: 15px; font-weight: bold; box-shadow: inset 0 1px 3px rgba(0,0,0,0.05); cursor: pointer; transition: transform 0.2s; vertical-align: middle;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" title="Click to Edit Results">
                         <?php 
                             if($event['gold_winner']) echo "<span style='color: #d4af37;'>🥇 " . substr(strtoupper($event['gold_winner']), 0, 3) . "</span>";
                             if($event['silver_winner']) echo "<span style='color: #9e9e9e; margin-left: 8px;'>| 🥈 " . substr(strtoupper($event['silver_winner']), 0, 3) . "</span>";
@@ -532,9 +900,9 @@ foreach($top_5_states as $state => $data) {
                 <?php endif; ?>
 
                 <?php else: ?>
-                <!-- UPCOMING MATCH -->
                 <?php if($_SESSION['role'] == 'admin' || $_SESSION['role'] == 'staff'): ?>
-                    <!-- BIGGER CONTROL BUTTONS -->
+                    <button onclick="openParticipantsModal(<?php echo $event['id']; ?>, '<?php echo addslashes($event['event_name']); ?>', '<?php echo addslashes($event['match_phase']); ?>')" style="background: none; border: none; cursor: pointer; color: #0056b3; font-size: 20px; margin-right: 12px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'" title="View Athletes">👥</button>
+
                     <button onclick="openSetResultModal(<?php echo $event['id']; ?>)" style="background: none; border: none; cursor: pointer; color: #d4af37; font-size: 24px; margin-right: 12px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'" title="Set Result">🏆</button>
                     <button onclick="openEditEventModal(<?php echo $event['id']; ?>)" style="background: none; border: none; cursor: pointer; color: #17a2b8; font-size: 20px; margin-right: 8px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'" title="Edit">✏️</button>
                     <button onclick="openDeleteEventModal(<?php echo $event['id']; ?>)" style="background: none; border: none; cursor: pointer; color: #dc3545; font-size: 20px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'" title="Delete">🗑️</button>
@@ -553,14 +921,135 @@ foreach($top_5_states as $state => $data) {
     </div>
 </div>
 
-<div id="Analytics" class="tab-content">
-    <div class="generic-container">
-        <h3 style="text-align: center; margin-bottom: 30px;">Top 5 Contingents (Gold-Weighted)</h3>
-        <div style="width: 100%; max-width: 800px; margin: 0 auto;">
-            <canvas id="medalChart"></canvas>
+
+
+<?php if($_SESSION['role'] == 'admin' || $_SESSION['role'] == 'staff'): ?>
+<div id="Athletes" class="tab-content">
+    <div class="dashboard-wrapper">
+        
+        <!-- LEFT PANEL: ADD ATHLETE FORM -->
+        <div class="side-panel" style="flex: 1; min-width: 300px;">
+            <div class="generic-container" style="position: sticky; top: 20px;">
+                <h3 style="color: #da251d; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-top: 0;">Register New Athlete</h3>
+                
+                <?php echo $athlete_msg; ?>
+                
+                <form method="POST" action="dashboard.php">
+                    <input type="hidden" name="action" value="add_athlete">
+                    
+                    <label style="font-weight: bold; font-size: 14px; display: block; margin-top: 15px;">Full Name</label>
+                    <input type="text" name="full_name" required placeholder="e.g., AHMAD BIN ABU" style="width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+                    
+                    <label style="font-weight: bold; font-size: 14px; display: block; margin-top: 10px;">Contingent / State</label>
+                    <select name="contingent_state" required style="width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+                        <option value="" disabled selected>-- Select State --</option>
+                        <?php 
+                        // Using your existing $all_states array!
+                        foreach(array_keys($all_states) as $s): ?>
+                            <option value="<?php echo $s; ?>"><?php echo $s; ?></option>
+                        <?php endforeach; ?>
+                    </select>
+
+                    <label style="font-weight: bold; font-size: 14px; display: block; margin-top: 10px;">Gender Category</label>
+                    <select name="gender" required style="width: 100%; padding: 10px; margin: 8px 0 20px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+                        <option value="" disabled selected>-- Select Gender --</option>
+                        <option value="Male">Male (Lelaki)</option>
+                        <option value="Female">Female (Wanita)</option>
+                        <option value="Mixed">Mixed (Campuran)</option>
+                    </select>
+                    
+                    <button type="submit" style="width: 100%; background: #28a745; color: white; border: none; padding: 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 15px;">💾 Register Athlete</button>
+                </form>
+
+                <hr style="border: 0; border-top: 1px solid #ddd; margin: 25px 0 15px 0;">
+                <h4 style="color: #0056b3; margin-top: 0; text-align: center;">Bulk Import (CSV)</h4>
+                <form method="POST" action="dashboard.php" enctype="multipart/form-data" style="text-align: center;">
+                    <input type="hidden" name="action" value="import_csv">
+                    <input type="file" name="csv_file" accept=".csv" required style="margin-bottom: 10px; font-size: 12px; width: 100%;">
+                    <button type="submit" style="width: 100%; background: #6c757d; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px;">📁 Upload CSV</button>
+                    <p style="font-size: 11px; color: #777; margin-top: 5px;">Format: Name, State, Gender</p>
+                </form>
+
+            </div>
+        </div>
+
+        <!-- RIGHT PANEL: ATHLETE MASTER LIST -->
+        <div class="center-panel" style="flex: 2;">
+            <div class="generic-container" style="padding: 0; overflow: hidden;">
+                
+                <div style="padding: 20px; background: white; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
+                    <h3 style="margin: 0;">Athlete Master List (<?php echo mysqli_num_rows($athletes_query); ?>)</h3>
+                    
+                    <div style="margin: 0; display: flex; gap: 10px;">
+                        <input type="text" id="athleteSearchInput" onkeyup="applyAthleteFilter()" placeholder="🔍 Live search Name, State, or Gender..." style="padding: 8px 15px; border: 1px solid #ccc; border-radius: 20px; outline: none; font-size: 14px; width: 300px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);">
+                    </div>
+                </div>
+
+                <div style="max-height: 600px; overflow-y: auto;">
+                    <table style="margin: 0; width: 100%; border-collapse: collapse;">
+                        <thead style="position: sticky; top: 0; background: #f8f9fa; box-shadow: 0 1px 2px rgba(0,0,0,0.1);">
+                            <tr>
+                                <th style="padding: 12px; text-align: left; border-bottom: 2px solid #ddd;">Athlete Name</th>
+                                <th style="padding: 12px; text-align: center; border-bottom: 2px solid #ddd;">State</th>
+                                <th style="padding: 12px; text-align: center; border-bottom: 2px solid #ddd;">Gender</th>
+                                <th style="padding: 12px; text-align: center; border-bottom: 2px solid #ddd;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="athlete-table-body">
+                            <?php 
+                            if(mysqli_num_rows($athletes_query) > 0) {
+                                while($row = mysqli_fetch_assoc($athletes_query)) { 
+                                    $img = strtolower(str_replace(' ', '_', $row['contingent_state'])) . '.png';
+                            ?>
+                                <tr style="border-bottom: 1px solid #eee; transition: background 0.2s;" onmouseover="this.style.background='#fcfcfc'" onmouseout="this.style.background='transparent'">
+                                    
+                                    <td style="padding: 12px; font-weight: bold; font-size: 14px;">
+                                        <a href="#" onclick="openProfileModal(<?php echo $row['id']; ?>); return false;" style="display: inline-flex; align-items: center; gap: 8px; color: #444; text-decoration: none; padding: 6px 12px; border-radius: 4px; background: #f8f9fa; border: 1px solid #ddd; transition: all 0.2s; box-shadow: inset 0 -2px 0 rgba(0,0,0,0.05);" onmouseover="this.style.background='#0056b3'; this.style.color='white'; this.style.borderColor='#0056b3';" onmouseout="this.style.background='#f8f9fa'; this.style.color='#444'; this.style.borderColor='#ddd';">
+                                            <span style="font-size: 16px;">🪪</span> 
+                                            <?php echo htmlspecialchars($row['full_name']); ?>
+                                        </a>
+                                    </td>
+                                    
+                                    <td style="padding: 12px; text-align: center;">
+                                        <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+                                            <img src="assets/flags/<?php echo $img; ?>" style="width: 20px; height: 20px; border-radius: 50%; object-fit: cover; border: 1px solid #ddd;" alt="flag">
+                                            <span style="font-size: 13px; font-weight: bold; color: #555;"><?php echo strtoupper(substr($row['contingent_state'], 0, 3)); ?></span>
+                                        </div>
+                                    </td>
+                                    
+                                    <td style="padding: 12px; text-align: center; font-size: 13px;">
+                                        <?php 
+                                        if($row['gender'] == 'Male') echo "👨 Lelaki";
+                                        if($row['gender'] == 'Female') echo "👩 Wanita";
+                                        if($row['gender'] == 'Mixed') echo "🚻 Campuran";
+                                        ?>
+                                    </td>
+                                    
+                                    <td style="padding: 12px; text-align: center;">
+                                        <div style="display: flex; justify-content: center; gap: 10px; align-items: center;">
+
+                                            <button type="button" onclick="openAssignModal(<?php echo $row['id']; ?>, '<?php echo addslashes($row['full_name']); ?>', '<?php echo addslashes($row['contingent_state']); ?>')" style="background: none; border: none; color: #28a745; cursor: pointer; font-size: 18px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'" title="Assign to Match">📅</button>                                        
+                                            <button type="button" onclick="openEditAthleteModal(<?php echo $row['id']; ?>, '<?php echo addslashes($row['full_name']); ?>', '<?php echo addslashes($row['contingent_state']); ?>', '<?php echo addslashes($row['gender']); ?>')" style="background: none; border: none; color: #17a2b8; cursor: pointer; font-size: 18px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'" title="Edit Athlete">✏️</button>
+                                                <form method="POST" action="dashboard.php" onsubmit="return confirm('Delete this athlete?');" style="margin: 0;">
+                                                    <input type="hidden" name="action" value="delete_athlete">
+                                                    <input type="hidden" name="athlete_id" value="<?php echo $row['id']; ?>">
+                                                    <button type="submit" style="background: none; border: none; color: #dc3545; cursor: pointer; font-size: 18px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'" title="Delete Athlete">🗑️</button>
+                                                </form>
+        
+                                        </div>
+                                    </td>
+                                </tr>
+                            <?php } } else { ?>
+                                <tr><td colspan="4" style="text-align: center; padding: 30px; color: #777;">No athletes found.</td></tr>
+                            <?php } ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
 </div>
+<?php endif; ?>
 
 <?php if($_SESSION['role'] == 'admin'): ?>
 <div id="ManageUsers" class="tab-content">
@@ -741,17 +1230,20 @@ foreach($top_5_states as $state => $data) {
             
             <div id="result_event_info" style="text-align: center; margin-bottom: 20px; padding: 10px; background: #f8f9fa; border-radius: 4px; border: 1px solid #ddd; font-weight: bold;"></div>
 
-            <div id="wrapper_gold_silver" style="display: none; background: #fffdf5; padding: 15px; border-radius: 4px; border: 1px solid #ffecb3; margin-bottom: 15px;">
-                <label style="font-weight: bold; font-size: 14px; color: #d4af37;">🥇 Gold Medal Winner</label>
-                <select id="result_gold" style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px;"></select>
+            <div id="wrapper_medals" style="display: none; background: #fffdf5; padding: 15px; border-radius: 4px; border: 1px solid #ffecb3; margin-bottom: 15px;">
+                
+                <div id="input_group_gold_silver">
+                    <label style="font-weight: bold; font-size: 14px; color: #d4af37;">🥇 Gold Medal Winner</label>
+                    <select id="result_gold" style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px;"></select>
 
-                <label style="font-weight: bold; font-size: 14px; color: #9e9e9e;">🥈 Silver Medal Winner</label>
-                <select id="result_silver" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"></select>
-            </div>
+                    <label style="font-weight: bold; font-size: 14px; color: #9e9e9e;">🥈 Silver Medal Winner</label>
+                    <select id="result_silver" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"></select>
+                </div>
 
-            <div id="wrapper_bronze" style="display: none; background: #fdf6f2; padding: 15px; border-radius: 4px; border: 1px solid #f5d0b5; margin-bottom: 15px;">
-                <label style="font-weight: bold; font-size: 14px; color: #cd7f32;">🥉 Bronze Medal Winner</label>
-                <select id="result_bronze" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"></select>
+                <div id="input_group_bronze" style="display: none; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #e0e0e0;">
+                    <label style="font-weight: bold; font-size: 14px; color: #cd7f32;">🥉 Bronze Medal Winner</label>
+                    <select id="result_bronze" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"></select>
+                </div>
             </div>
 
             <div id="wrapper_generic" style="display: none; text-align: center; margin-bottom: 20px; color: #666; font-style: italic;">
@@ -763,6 +1255,135 @@ foreach($top_5_states as $state => $data) {
                 <button type="submit" style="background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold;">Confirm Result</button>
             </div>
         </form>
+    </div>
+</div>
+
+<div id="athleteProfileModal" class="custom-modal">
+    <div class="modal-box" style="width: 450px; padding: 0; overflow: hidden; text-align: left;">
+        
+        <div style="background: #0056b3; padding: 30px 20px 20px 20px; text-align: center; position: relative;">
+            <button onclick="closeProfileModal()" style="position: absolute; top: 15px; right: 15px; background: none; border: none; color: white; font-size: 20px; cursor: pointer;">✖</button>
+            
+            <img id="profile_flag" src="" style="width: 80px; height: 80px; border-radius: 50%; border: 3px solid white; object-fit: cover; box-shadow: 0 4px 8px rgba(0,0,0,0.2); background: white;">
+            <h2 id="profile_name" style="color: white; margin: 15px 0 5px 0; font-size: 22px;"></h2>
+            <div id="profile_state_gender" style="color: #e0e0e0; font-size: 14px; font-weight: bold;"></div>
+        </div>
+
+        <div style="padding: 20px; background: #f8f9fa;">
+            <h4 style="margin: 0 0 15px 0; color: #333; border-bottom: 2px solid #ddd; padding-bottom: 5px;">📅 Registered Events</h4>
+            
+            <div id="profile_events_list" style="max-height: 250px; overflow-y: auto;">
+                </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- EDIT ATHLETE MODAL -->
+<div id="editAthleteModal" class="custom-modal">
+    <div class="modal-box" style="width: 400px; text-align: left;">
+        <h3 class="modal-title" style="margin-bottom: 20px; color: #0056b3; text-align: center;">✏️ Edit Athlete Details</h3>
+        
+        <form method="POST" action="dashboard.php">
+            <input type="hidden" name="action" value="edit_athlete">
+            <input type="hidden" name="athlete_id" id="edit_athlete_id">
+            
+            <label style="font-weight: bold; font-size: 14px;">Full Name</label>
+            <input type="text" name="full_name" id="edit_athlete_name" required style="width: 100%; padding: 10px; margin: 8px 0 15px 0; border: 1px solid #ccc; border-radius: 4px;">
+            
+            <label style="font-weight: bold; font-size: 14px;">Contingent / State</label>
+            <select name="contingent_state" id="edit_athlete_state" required style="width: 100%; padding: 10px; margin: 8px 0 15px 0; border: 1px solid #ccc; border-radius: 4px;">
+                <?php foreach(array_keys($all_states) as $s): ?>
+                    <option value="<?php echo $s; ?>"><?php echo $s; ?></option>
+                <?php endforeach; ?>
+            </select>
+
+            <label style="font-weight: bold; font-size: 14px;">Gender Category</label>
+            <select name="gender" id="edit_athlete_gender" required style="width: 100%; padding: 10px; margin: 8px 0 25px 0; border: 1px solid #ccc; border-radius: 4px;">
+                <option value="Male">Male (Lelaki)</option>
+                <option value="Female">Female (Wanita)</option>
+                <option value="Mixed">Mixed (Campuran)</option>
+            </select>
+            
+            <div class="modal-actions">
+                <button type="button" onclick="closeEditAthleteModal()" class="btn-cancel">Cancel</button>
+                <button type="submit" style="background: #0056b3; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold;">Update Athlete</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="assignAthleteModal" class="custom-modal">
+    <div class="modal-box" style="width: 450px; text-align: left;">
+        <h3 class="modal-title" style="margin-bottom: 5px; color: #28a745; text-align: center;">📅 Assign to Match</h3>
+        <p id="assign_athlete_name_display" style="text-align: center; color: #666; font-weight: bold; margin-bottom: 20px;"></p>
+        
+        <form id="assignAthleteForm" onsubmit="submitAthleteAssignment(event)">
+            <input type="hidden" id="assign_athlete_id">
+            
+            <label style="font-weight: bold; font-size: 14px;">Available Upcoming Matches</label>
+            <select id="assign_event_dropdown" required style="width: 100%; padding: 10px; margin: 8px 0 25px 0; border: 1px solid #ccc; border-radius: 4px;">
+                </select>
+            
+            <div class="modal-actions">
+                <button type="button" onclick="closeAssignModal()" class="btn-cancel">Cancel</button>
+                <button type="submit" style="background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold;">Confirm Assignment</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="viewParticipantsModal" class="custom-modal">
+    <div class="modal-box" style="width: 500px; text-align: left;">
+        <h3 id="vp_event_title" class="modal-title" style="margin-bottom: 5px; color: #0056b3; text-align: center;">👥 Event Participants</h3>
+        <p id="vp_event_phase" style="text-align: center; color: #666; font-size: 13px; margin-bottom: 20px;"></p>
+        
+        <div style="background: #f8f9fa; border: 1px solid #eee; border-radius: 6px; padding: 15px; max-height: 300px; overflow-y: auto;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <tbody id="vp_participants_list">
+                    </tbody>
+            </table>
+        </div>
+        
+        <div class="modal-actions" style="margin-top: 20px;">
+            <button type="button" onclick="closeParticipantsModal()" class="btn-cancel" style="width: 100%;">Close List</button>
+        </div>
+    </div>
+</div>
+
+<div id="medalWinnersModal" class="custom-modal">
+    <div class="modal-box" style="width: 550px; text-align: left;">
+        <h3 id="mw_title" class="modal-title" style="margin-bottom: 5px; color: #333; text-align: center;">🏆 Medal Winners</h3>
+        <p id="mw_subtitle" style="text-align: center; color: #666; font-size: 14px; margin-bottom: 20px; font-weight: bold;"></p>
+        
+        <div style="background: #f8f9fa; border: 1px solid #eee; border-radius: 6px; padding: 15px; max-height: 350px; overflow-y: auto;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <tbody id="mw_winners_list">
+                    </tbody>
+            </table>
+        </div>
+        
+        <div class="modal-actions" style="margin-top: 20px;">
+            <button type="button" onclick="closeMedalWinnersModal()" class="btn-cancel" style="width: 100%;">Close Panel</button>
+        </div>
+    </div>
+</div>
+
+<div id="systemToast" style="position: fixed; top: 20px; right: -400px; background: #333; color: white; padding: 15px 25px; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 9999; transition: right 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55); font-weight: bold; display: flex; align-items: center; gap: 12px;">
+    <span id="toastIcon" style="font-size: 20px;">ℹ️</span>
+    <span id="toastMessage" style="font-size: 14px; letter-spacing: 0.5px;">Notification</span>
+</div>
+
+<div id="confirmUnassignModal" class="custom-modal">
+    <div class="modal-box" style="width: 400px;">
+        <div style="font-size: 40px; margin-bottom: 15px;">⚠️</div>
+        <h3 class="modal-title">Remove Athlete?</h3>
+        <p id="unassign_confirm_text" class="modal-text" style="margin-bottom: 25px;"></p>
+        
+        <div class="modal-actions">
+            <button onclick="closeUnassignConfirm()" class="btn-cancel">Cancel</button>
+            <button id="executeUnassignBtn" class="btn-danger" style="background: #dc3545; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold;">Yes, Remove Athlete</button>
+        </div>
     </div>
 </div>
 
@@ -805,20 +1426,241 @@ foreach($top_5_states as $state => $data) {
         }
     };
 
-    // Analytics Chart initialization
+    // --- DYNAMIC ANALYTICS ENGINE ---
+    let medalChartInstance = null;
     const ctx = document.getElementById('medalChart').getContext('2d');
-    new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: <?php echo json_encode($states); ?>,
-            datasets: [
-                { label: 'Gold', data: <?php echo json_encode($golds); ?>, backgroundColor: 'rgba(255, 193, 7, 0.8)', borderColor: 'rgba(255, 193, 7, 1)', borderWidth: 1 },
-                { label: 'Silver', data: <?php echo json_encode($silvers); ?>, backgroundColor: 'rgba(192, 192, 192, 0.8)', borderColor: 'rgba(192, 192, 192, 1)', borderWidth: 1 },
-                { label: 'Bronze', data: <?php echo json_encode($bronzes); ?>, backgroundColor: 'rgba(205, 127, 50, 0.8)', borderColor: 'rgba(205, 127, 50, 1)', borderWidth: 1 }
-            ]
-        },
-        options: { responsive: true, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
-    });
+    
+    // 1. We grab ALL the state data from PHP instantly!
+    const allStatesData = <?php echo json_encode($all_states); ?>;
+    
+    // 2. We grab the Top 5 Data for the default view
+    const defaultLabels = <?php echo json_encode($states); ?>;
+    const defaultGolds = <?php echo json_encode($golds); ?>;
+    const defaultSilvers = <?php echo json_encode($silvers); ?>;
+    const defaultBronzes = <?php echo json_encode($bronzes); ?>;
+
+    function initDefaultBarChart() {
+        if(medalChartInstance) medalChartInstance.destroy();
+        document.getElementById('analytics_chart_title').innerText = "📊 Top 5 Contingents (Gold-Weighted)";
+        
+        medalChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: defaultLabels,
+                datasets: [
+                    { label: 'Gold', data: defaultGolds, backgroundColor: 'rgba(255, 193, 7, 0.8)', borderColor: '#d4af37', borderWidth: 1 },
+                    { label: 'Silver', data: defaultSilvers, backgroundColor: 'rgba(192, 192, 192, 0.8)', borderColor: '#9e9e9e', borderWidth: 1 },
+                    { label: 'Bronze', data: defaultBronzes, backgroundColor: 'rgba(205, 127, 50, 0.8)', borderColor: '#cd7f32', borderWidth: 1 }
+                ]
+            },
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false, 
+                scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } 
+            }
+        });
+    }
+
+    // 3. The Function triggered by the Dropdown
+    function updateAnalyticsChart() {
+        let selectedState = document.getElementById('analytics_state_filter').value;
+        
+        document.getElementById('analytics_sport_filter').value = 'ALL';
+        // If they select "Overview", go back to the Bar Chart
+        if (selectedState === 'ALL') {
+            initDefaultBarChart();
+            return;
+        }
+
+        // Otherwise, build a Doughnut Chart for the specific state
+        if(medalChartInstance) medalChartInstance.destroy();
+        document.getElementById('analytics_chart_title').innerText = "🎯 Performance Deep Dive: " + selectedState;
+        
+        let stateStats = allStatesData[selectedState];
+        
+        medalChartInstance = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Gold Medals', 'Silver Medals', 'Bronze Medals'],
+                datasets: [{
+                    data: [stateStats.gold, stateStats.silver, stateStats.bronze],
+                    backgroundColor: ['#d4af37', '#9e9e9e', '#cd7f32'],
+                    borderColor: ['#ffffff', '#ffffff', '#ffffff'],
+                    borderWidth: 3,
+                    hoverOffset: 10
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'right' }
+                }
+            }
+        });
+    }
+
+    // Initialize the default view when the page loads
+    initDefaultBarChart();
+
+// 4. The Sport-Specific Dominance Function
+    function updateSportDominance() {
+        let selectedSport = document.getElementById('analytics_sport_filter').value;
+        
+        // Reset the State dropdown so they don't conflict!
+        document.getElementById('analytics_state_filter').value = 'ALL';
+        
+        if (selectedSport === 'ALL') {
+            initDefaultBarChart();
+            return;
+        }
+
+        document.getElementById('analytics_chart_title').innerText = "🏆 Dominance: " + selectedSport;
+        
+        // Fetch the sport-specific data from our new PHP endpoint
+        fetch('event_action.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'fetch_sport_dominance', sport: selectedSport })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if(data.status === 'success') {
+                if(medalChartInstance) medalChartInstance.destroy();
+                
+                let labels = [];
+                let golds = [];
+                let silvers = [];
+                let bronzes = [];
+                
+                data.standings.forEach(row => {
+                    labels.push(row.state_name);
+                    golds.push(row.gold_count);
+                    silvers.push(row.silver_count);
+                    bronzes.push(row.bronze_count);
+                });
+
+                // Safety fallback: If no one has won medals in this sport yet
+                if(labels.length === 0) {
+                    labels = ['No Completed Matches Yet'];
+                    golds = [0]; silvers = [0]; bronzes = [0];
+                }
+
+                medalChartInstance = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            { label: 'Gold', data: golds, backgroundColor: 'rgba(255, 193, 7, 0.8)', borderColor: '#d4af37', borderWidth: 1 },
+                            { label: 'Silver', data: silvers, backgroundColor: 'rgba(192, 192, 192, 0.8)', borderColor: '#9e9e9e', borderWidth: 1 },
+                            { label: 'Bronze', data: bronzes, backgroundColor: 'rgba(205, 127, 50, 0.8)', borderColor: '#cd7f32', borderWidth: 1 }
+                        ]
+                    },
+                    options: { 
+                        responsive: true, 
+                        maintainAspectRatio: false, 
+                        scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } 
+                    }
+                });
+            }
+        });
+    }
+
+// 5. The Efficiency Ratio Metric (Mixed Chart with Dual Y-Axes)
+    function viewEfficiency() {
+        // Reset the dropdowns so the UI reflects the current state
+        document.getElementById('analytics_sport_filter').value = 'ALL';
+        document.getElementById('analytics_state_filter').value = 'ALL';
+        
+        document.getElementById('analytics_chart_title').innerText = "⚖️ Athlete-to-Medal Efficiency (ROI)";
+        
+        fetch('event_action.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'fetch_efficiency' })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if(data.status === 'success') {
+                if(medalChartInstance) medalChartInstance.destroy();
+                
+                let labels = [];
+                let athletes = [];
+                let medals = [];
+                let ratios = [];
+                
+                data.data.forEach(row => {
+                    // Only show states that actually brought athletes
+                    if(row.athletes > 0) { 
+                        // Add the % to the label for quick reading
+                        labels.push(row.state + " (" + row.ratio + "%)");
+                        athletes.push(row.athletes);
+                        medals.push(row.medals);
+                        ratios.push(row.ratio);
+                    }
+                });
+
+                medalChartInstance = new Chart(ctx, {
+                    type: 'bar', // Base type
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            { 
+                                type: 'line', // The Overlay Line
+                                label: 'Total Medals Won', 
+                                data: medals, 
+                                borderColor: '#d4af37', 
+                                backgroundColor: '#d4af37', 
+                                borderWidth: 3,
+                                tension: 0.3,
+                                yAxisID: 'y1' // Assign to the RIGHT axis
+                            },
+                            { 
+                                type: 'bar', // The Background Bars
+                                label: 'Total Athletes Sent', 
+                                data: athletes, 
+                                backgroundColor: 'rgba(0, 86, 179, 0.2)', 
+                                borderColor: '#0056b3', 
+                                borderWidth: 1,
+                                yAxisID: 'y' // Assign to the LEFT axis
+                            }
+                        ]
+                    },
+                    options: { 
+                        responsive: true, 
+                        maintainAspectRatio: false,
+                        interaction: { mode: 'index', intersect: false },
+                        scales: { 
+                            y: { 
+                                type: 'linear', 
+                                display: true, 
+                                position: 'left',
+                                title: { display: true, text: 'Number of Athletes' }
+                            },
+                            y1: { 
+                                type: 'linear', 
+                                display: true, 
+                                position: 'right',
+                                title: { display: true, text: 'Medals Won' },
+                                grid: { drawOnChartArea: false } // Prevent gridlines from crossing over each other
+                            }
+                        },
+                        plugins: {
+                            tooltip: {
+                                callbacks: {
+                                    afterBody: function(context) {
+                                        // Find the index of the hovered item to inject the custom ratio text
+                                        let index = context[0].dataIndex;
+                                        return '\nEfficiency Ratio: ' + ratios[index] + '%';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        });
+    }
 
     // --- SOCIAL MEDIA AJAX FUNCTIONS ---
 
@@ -1382,7 +2224,6 @@ function clearFilters() {
     let dropdown = document.getElementById("dropdown-filter");
     if(dropdown) dropdown.classList.remove("show");
 }
-
 // --- UPDATED BULLETPROOF SET RESULT MODAL SHAPE-SHIFTER ---
 function openSetResultModal(eventId) {
     fetch('event_action.php', {
@@ -1414,30 +2255,45 @@ function openSetResultModal(eventId) {
             if (data.silver_winner) document.getElementById('result_silver').value = data.silver_winner.toUpperCase();
             if (data.bronze_winner) document.getElementById('result_bronze').value = data.bronze_winner.toUpperCase();
 
-            // Reset all wrappers to hidden
-            document.getElementById('wrapper_gold_silver').style.display = 'none';
-            document.getElementById('wrapper_bronze').style.display = 'none';
-            document.getElementById('wrapper_generic').style.display = 'none';
+            // --- DEFENSIVE PROGRAMMING SAFETY CHECK ---
+            let wMedals = document.getElementById('wrapper_medals');
+            let wGS = document.getElementById('input_group_gold_silver');
+            let wBronze = document.getElementById('input_group_bronze');
+            let wGeneric = document.getElementById('wrapper_generic');
+
+            if (!wMedals || !wGS || !wBronze || !wGeneric) {
+                console.error("HTML Desync: One of the modal wrappers is missing from the page!");
+                return; // Stop execution before the crash happens
+            }
+
+            // Reset all wrappers to hidden safely
+            wMedals.style.display = 'none';
+            wGS.style.display = 'none';
+            wBronze.style.display = 'none';
+            wGeneric.style.display = 'none';
 
             let phase = data.match_phase.toLowerCase();
             let participantCount = stateListToUse.length; 
             
-            // --- THE CRITICAL LOGIC FIX ---
-            // 1. Check for true, actual Final matches ONLY.
-            // We change the overly inclusive `.includes('final')` logic to strict equality.
-            if (phase === 'final' || phase === 'akhir') {
-                document.getElementById('wrapper_gold_silver').style.display = 'block';
-                // If it's a true Final with more than 2 participants, ask for Bronze too!
-                if (participantCount > 2) document.getElementById('wrapper_bronze').style.display = 'block';
+            // 1. Check for true Final matches
+            if ((phase.includes('final') || phase.includes('akhir')) && !phase.includes('semi') && !phase.includes('separuh')) {
+                
+                wMedals.style.display = 'block'; 
+                wGS.style.display = 'block'; 
+                
+                if (participantCount > 2) {
+                    wBronze.style.display = 'block';
+                }
             
-            // 2. Check for dedicated Bronze Matches (these also award a medal)
+            // 2. Check for dedicated Bronze Matches
             } else if (phase.includes('bronze') || phase.includes('gangsa')) {
-                document.getElementById('wrapper_bronze').style.display = 'block';
+                
+                wMedals.style.display = 'block'; 
+                wBronze.style.display = 'block'; 
             
-            // 3. Fallback for all other non-medal matches (including Heats, Group Stages, and crucially, SEMI-FINALS)
+            // 3. Fallback for all other non-medal matches
             } else {
-                // Semi-Finals now fall here, and it asks for generic "Finished" status, not medals.
-                document.getElementById('wrapper_generic').style.display = 'block';
+                wGeneric.style.display = 'block';
             }
 
             document.getElementById('setResultModal').style.display = 'flex';
@@ -1477,7 +2333,372 @@ function submitResult(event) {
     });
 }
 
+// --- ATHLETE MODAL LOGIC ---
+function openEditAthleteModal(id, name, state, gender) {
+    document.getElementById('edit_athlete_id').value = id;
+    document.getElementById('edit_athlete_name').value = name;
+    document.getElementById('edit_athlete_state').value = state;
+    document.getElementById('edit_athlete_gender').value = gender;
+    
+    document.getElementById('editAthleteModal').style.display = 'flex';
+}
+
+function closeEditAthleteModal() {
+    document.getElementById('editAthleteModal').style.display = 'none';
+}
+
+// --- ATHLETE LIVE SEARCH LOGIC ---
+function applyAthleteFilter() {
+    let input = document.getElementById("athleteSearchInput");
+    let filter = input.value.toLowerCase();
+    let tableBody = document.getElementById("athlete-table-body");
+    
+    // Only proceed if the table actually exists on the page
+    if (!tableBody) return; 
+
+    let rows = tableBody.getElementsByTagName("tr");
+
+    for (let i = 0; i < rows.length; i++) {
+        let cols = rows[i].getElementsByTagName("td");
+        
+        // Ensure it's a real data row (our data rows have 4 columns)
+        // This prevents the search from breaking on the "No athletes found" placeholder row
+        if (cols.length > 1) { 
+            // Grab all the text inside the entire row (Name + State + Gender)
+            let rowText = rows[i].innerText.toLowerCase();
+            
+            // If the row contains the typed letters, show it. Otherwise, hide it!
+            if (rowText.indexOf(filter) > -1) {
+                rows[i].style.display = "";
+            } else {
+                rows[i].style.display = "none";
+            }
+        }
+    }
+}
+
+// --- ATHLETE ASSIGNMENT LOGIC ---
+function openAssignModal(athleteId, athleteName, state) {
+    document.getElementById('assign_athlete_id').value = athleteId;
+    document.getElementById('assign_athlete_name_display').innerText = `${athleteName} (${state})`;
+    
+    let dropdown = document.getElementById('assign_event_dropdown');
+    dropdown.innerHTML = '<option value="">Loading available matches...</option>';
+    document.getElementById('assignAthleteModal').style.display = 'flex';
+
+    // Fetch matches that match the athlete's state!
+    fetch('event_action.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'fetch_state_events', state: state })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if(data.status === 'success') {
+            if(data.events.length === 0) {
+                dropdown.innerHTML = '<option value="" disabled selected>No upcoming matches for this state.</option>';
+            } else {
+                dropdown.innerHTML = '<option value="" disabled selected>-- Select a Match --</option>';
+                data.events.forEach(ev => {
+                    dropdown.innerHTML += `<option value="${ev.id}">${ev.event_name} (${ev.match_phase})</option>`;
+                });
+            }
+        }
+    });
+}
+
+function closeAssignModal() {
+    document.getElementById('assignAthleteModal').style.display = 'none';
+}
+
+function submitAthleteAssignment(event) {
+    event.preventDefault();
+    let athleteId = document.getElementById('assign_athlete_id').value;
+    let eventId = document.getElementById('assign_event_dropdown').value;
+
+    fetch('event_action.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'assign_athlete', athlete_id: athleteId, event_id: eventId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if(data.status === 'success') {
+            showToast('Athlete successfully assigned to match!', 'success'); // <-- THE UPGRADE
+            closeAssignModal();
+        } else {
+            showToast('Error: ' + data.message, 'error'); // <-- THE UPGRADE
+        }
+    });
+}
+
+// --- ATHLETE PROFILE CARD LOGIC ---
+function openProfileModal(athleteId) {
+    fetch('event_action.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'fetch_athlete_profile', athlete_id: athleteId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if(data.status === 'success') {
+            // Fill basic info
+            document.getElementById('profile_name').innerText = data.athlete.full_name;
+            let genderIcon = data.athlete.gender === 'Male' ? '👨' : (data.athlete.gender === 'Female' ? '👩' : '🚻');
+            document.getElementById('profile_state_gender').innerText = `${genderIcon} ${data.athlete.gender}  |  📍 ${data.athlete.contingent_state}`;
+            
+            // Set the flag image dynamically
+            let flagImg = data.athlete.contingent_state.toLowerCase().replace(/ /g, '_') + '.png';
+            document.getElementById('profile_flag').src = 'assets/flags/' + flagImg;
+
+            // Fill the events list
+            let eventsList = document.getElementById('profile_events_list');
+            eventsList.innerHTML = '';
+
+            if (data.events.length === 0) {
+                eventsList.innerHTML = '<div style="text-align: center; color: #777; padding: 20px; font-style: italic;">No events assigned yet.</div>';
+            } else {
+                data.events.forEach(ev => {
+                    let statusColor = ev.match_status === 'Completed' ? '#28a745' : '#17a2b8';
+                    let statusIcon = ev.match_status === 'Completed' ? '✓ Finished' : '⏳ Upcoming';
+                    
+                    eventsList.innerHTML += `
+                        <div style="background: white; padding: 12px; border: 1px solid #ddd; border-radius: 6px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                            <div>
+                                <strong style="color: #333; font-size: 14px;">${ev.event_name}</strong><br>
+                                <span style="font-size: 12px; color: #666;">${ev.match_phase}</span>
+                            </div>
+                            <div style="font-size: 11px; font-weight: bold; color: ${statusColor}; background: ${statusColor}20; padding: 4px 8px; border-radius: 12px;">
+                                ${statusIcon}
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            document.getElementById('athleteProfileModal').style.display = 'flex';
+        }
+    });
+}
+
+function closeProfileModal() {
+    document.getElementById('athleteProfileModal').style.display = 'none';
+}
+
+// --- VIEW EVENT PARTICIPANTS & UNASSIGN LOGIC ---
+
+// Store the current event details so the modal can refresh itself!
+let currentViewEventId = null;
+let currentViewEventName = '';
+let currentViewEventPhase = '';
+
+function openParticipantsModal(eventId, eventName, eventPhase) {
+    currentViewEventId = eventId;
+    currentViewEventName = eventName;
+    currentViewEventPhase = eventPhase;
+    
+    document.getElementById('vp_event_title').innerText = '👥 ' + eventName;
+    document.getElementById('vp_event_phase').innerText = eventPhase;
+    
+    let listContainer = document.getElementById('vp_participants_list');
+    listContainer.innerHTML = '<tr><td style="text-align:center; padding:20px; color:#777;">Loading athletes...</td></tr>';
+    document.getElementById('viewParticipantsModal').style.display = 'flex';
+
+    fetch('event_action.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'fetch_event_participants', event_id: eventId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if(data.status === 'success') {
+            listContainer.innerHTML = '';
+            
+            if(data.participants.length === 0) {
+                listContainer.innerHTML = '<tr><td style="text-align:center; padding:20px; color:#777; font-style:italic;">No athletes have been assigned to this match yet.</td></tr>';
+            } else {
+                data.participants.forEach((p) => {
+                    let flagImg = p.contingent_state.toLowerCase().replace(/ /g, '_') + '.png';
+                    let genderIcon = p.gender === 'Male' ? '👨' : (p.gender === 'Female' ? '👩' : '🚻');
+                    
+                    // NEW: We added a 3rd column with a red ✖ button!
+                    listContainer.innerHTML += `
+                        <tr style="border-bottom: 1px solid #ddd; transition: background 0.2s;" onmouseover="this.style.background='#fff'" onmouseout="this.style.background='transparent'">
+                            <td style="padding: 10px; width: 40px; text-align: center;">
+                                <img src="assets/flags/${flagImg}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover; border: 1px solid #ccc;">
+                            </td>
+                            <td style="padding: 10px; font-weight: bold; font-size: 14px;">
+                                <a href="#" onclick="closeParticipantsModal(); openProfileModal(${p.id}); return false;" style="display: inline-flex; align-items: center; gap: 8px; color: #444; text-decoration: none; padding: 4px 8px; border-radius: 4px; background: #f8f9fa; border: 1px solid #ddd; transition: all 0.2s;" onmouseover="this.style.background='#0056b3'; this.style.color='white'; this.style.borderColor='#0056b3';" onmouseout="this.style.background='#f8f9fa'; this.style.color='#444'; this.style.borderColor='#ddd';">
+                                    🪪 ${p.full_name}
+                                </a>
+                            </td>
+                            <td style="padding: 10px; text-align: center; font-size: 12px; color: #666;">
+                                ${genderIcon} ${p.contingent_state}
+                            </td>
+                            <td style="padding: 10px; text-align: right; width: 40px;">
+                                <button onclick="unassignAthlete(${p.id}, '${p.full_name.replace(/'/g, "\\'")}')" style="background: none; border: none; color: #dc3545; cursor: pointer; font-size: 18px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.3)'" onmouseout="this.style.transform='scale(1)'" title="Remove Athlete from Match">✖</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
+        }
+    });
+}
+
+function closeParticipantsModal() {
+    document.getElementById('viewParticipantsModal').style.display = 'none';
+}
+
+// Temporary storage for the removal process
+let athleteToUnassign = null;
+let athleteNameToUnassign = "";
+
+// 1. Triggered when clicking the ✖ button
+function unassignAthlete(athleteId, athleteName) {
+    athleteToUnassign = athleteId;
+    athleteNameToUnassign = athleteName;
+    
+    // Set the text in the modal and show it
+    document.getElementById('unassign_confirm_text').innerText = `Are you sure you want to remove ${athleteName} from this match?`;
+    document.getElementById('confirmUnassignModal').style.display = 'flex';
+}
+
+function closeUnassignConfirm() {
+    document.getElementById('confirmUnassignModal').style.display = 'none';
+    athleteToUnassign = null;
+}
+
+// 2. Triggered when clicking "Yes, Remove Athlete" inside the modal
+document.getElementById('executeUnassignBtn').onclick = function() {
+    if(!athleteToUnassign || !currentViewEventId) return;
+    
+    fetch('event_action.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            action: 'remove_athlete', 
+            athlete_id: athleteToUnassign, 
+            event_id: currentViewEventId 
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if(data.status === 'success') {
+            // Close confirmation modal
+            closeUnassignConfirm();
+            
+            // Show the bouncy red toast notification we built
+            showToast(`${athleteNameToUnassign} removed from match.`, 'error');
+            
+            // Refresh the participant list instantly
+            openParticipantsModal(currentViewEventId, currentViewEventName, currentViewEventPhase);
+        } else {
+            showToast('Error removing athlete.', 'error');
+        }
+    });
+};
+
+// --- MEDAL WINNERS DRILL-DOWN LOGIC ---
+function openMedalWinnersModal(state, medalType) {
+    let titleStr = "🏆 Medal Winners";
+    let colorHex = "#333";
+    
+    if (medalType === 'gold') { titleStr = "🥇 Gold Medalists"; colorHex = "#d4af37"; }
+    if (medalType === 'silver') { titleStr = "🥈 Silver Medalists"; colorHex = "#9e9e9e"; }
+    if (medalType === 'bronze') { titleStr = "🥉 Bronze Medalists"; colorHex = "#cd7f32"; }
+
+    document.getElementById('mw_title').innerText = titleStr;
+    document.getElementById('mw_title').style.color = colorHex;
+    document.getElementById('mw_subtitle').innerText = "Contingent: " + state.toUpperCase();
+    
+    let listContainer = document.getElementById('mw_winners_list');
+    listContainer.innerHTML = '<tr><td style="text-align:center; padding:20px; color:#777;">Fetching records...</td></tr>';
+    document.getElementById('medalWinnersModal').style.display = 'flex';
+
+    fetch('event_action.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'fetch_medal_winners', state: state, medal_type: medalType })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if(data.status === 'success') {
+            listContainer.innerHTML = '';
+            
+            if(data.winners.length === 0) {
+                listContainer.innerHTML = '<tr><td style="text-align:center; padding:20px; color:#dc3545; font-style:italic;">⚠️ Medals awarded, but no specific athletes have been assigned to this event yet!</td></tr>';
+            } else {
+                data.winners.forEach((w) => {
+                    let medalIcon = w.medal_won === 'Gold' ? '🥇' : (w.medal_won === 'Silver' ? '🥈' : '🥉');
+                    let medalBadgeColor = w.medal_won === 'Gold' ? '#fffdf5' : (w.medal_won === 'Silver' ? '#f8f9fa' : '#fdf6f2');
+                    let medalBorderColor = w.medal_won === 'Gold' ? '#ffecb3' : (w.medal_won === 'Silver' ? '#ddd' : '#f5d0b5');
+                    
+                    listContainer.innerHTML += `
+                        <tr style="border-bottom: 1px solid #eee; background: ${medalBadgeColor}; transition: filter 0.2s;" onmouseover="this.style.filter='brightness(0.95)'" onmouseout="this.style.filter='brightness(1)'">
+                            <td style="padding: 12px; font-weight: bold; font-size: 14px; border-left: 4px solid ${medalBorderColor};">
+                                <a href="#" onclick="closeMedalWinnersModal(); openProfileModal(${w.id}); return false;" style="color: #0056b3; text-decoration: none; border-bottom: 1px dashed transparent; transition: all 0.2s;" onmouseover="this.style.color='#da251d'; this.style.borderBottom='1px dashed #da251d';" onmouseout="this.style.color='#0056b3'; this.style.borderBottom='1px dashed transparent';">
+                                    ${w.full_name}
+                                </a>
+                            </td>
+                            <td style="padding: 12px; text-align: right; font-size: 12px; color: #555;">
+                                ${medalIcon} ${w.event_name}
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
+        }
+    });
+}
+
+function closeMedalWinnersModal() {
+    document.getElementById('medalWinnersModal').style.display = 'none';
+}
+
+// --- CUSTOM TOAST NOTIFICATION ENGINE ---
+let toastTimeout;
+function showToast(message, type = 'success') {
+    let toast = document.getElementById('systemToast');
+    let msg = document.getElementById('toastMessage');
+    let icon = document.getElementById('toastIcon');
+
+    msg.innerText = message;
+
+    // Theme the toast based on what happened
+    if (type === 'success') {
+        toast.style.background = '#28a745'; // Green
+        icon.innerText = '✅';
+    } else if (type === 'error') {
+        toast.style.background = '#dc3545'; // Red
+        icon.innerText = '⚠️';
+    } else {
+        toast.style.background = '#0056b3'; // Blue
+        icon.innerText = 'ℹ️';
+    }
+
+    // Slide it in
+    toast.style.right = '20px'; 
+
+    // Clear any existing timers so they don't overlap, then hide after 3 seconds
+    clearTimeout(toastTimeout);
+    toastTimeout = setTimeout(() => {
+        toast.style.right = '-400px'; 
+    }, 3000);
+}
+
 </script>
+
+    <!-- SYSTEM ACCESSIBILITY ANCHOR FOOTER -->
+    <div style="background: #1a1e23; color: #8a94a6; text-align: center; padding: 25px 20px; margin-top: 60px; border-top: 4px solid #da251d; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+        <div style="font-weight: 700; color: #f8f9fa; font-size: 14px; letter-spacing: 0.5px; margin-bottom: 4px;">
+            SUKMA INFORMATION SYSTEM (SIS)
+        </div>
+        <div style="font-size: 11px; color: #64748b; font-weight: 500;">
+            System Core Node v1.0.4 &bull; Secure Management Framework &bull; Developed by Ace
+        </div>
+    </div>
+
 
 </body>
 </html>
