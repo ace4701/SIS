@@ -179,15 +179,10 @@ if ($latest_match) $ticker_text .= "🏆 <span style='color: #ffcccc;'>BREAKING:
 </div>
 
 <?php include 'tab_overview.php'; ?>
-
 <?php include 'tab_news.php'; ?>
-
 <?php include 'tab_events.php'; ?>
-
 <?php include 'tab_athletes.php'; ?>
-
 <?php include 'tab_manage_users.php'; ?>
-
 <?php include 'dashboard_modals.php'; ?>
 
 <script>
