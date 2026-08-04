@@ -168,13 +168,17 @@ if ($latest_match) $ticker_text .= "🏆 <span style='color: #ffcccc;'>BREAKING:
     <button class="chrome-tab" onclick="openTab(event, 'Dashboard')" id="defaultOpen">Dashboard</button>
     <button class="chrome-tab" onclick="openTab(event, 'Events')">Events Schedule</button>
     <button class="chrome-tab" onclick="openTab(event, 'News')">News</button>
-    
+
     <?php if($_SESSION['role'] == 'admin' || $_SESSION['role'] == 'staff'): ?>
         <button class="chrome-tab" onclick="openTab(event, 'Athletes')">Manage Athletes</button>
     <?php endif; ?>
 
     <?php if($_SESSION['role'] == 'admin'): ?>
         <button class="chrome-tab" onclick="openTab(event, 'ManageUsers')">Manage Users</button>
+    <?php endif; ?>
+
+    <?php if($_SESSION['role'] == 'admin'): ?>
+        <button class="chrome-tab" onclick="openTab(event, 'Settings')">Settings</button>
     <?php endif; ?>
 </div>
 
@@ -185,6 +189,7 @@ if ($latest_match) $ticker_text .= "🏆 <span style='color: #ffcccc;'>BREAKING:
 <?php include 'tab_manage_users.php'; ?>
 <?php include 'dashboard_modals.php'; ?>
 <?php include 'dashboard_scripts.php'; ?>
+<?php include 'tab_settings.php'; ?>
 
 
     <!-- SYSTEM ACCESSIBILITY ANCHOR FOOTER -->

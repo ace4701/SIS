@@ -91,4 +91,119 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action'])) {
         }
     }
 }
+
+// 4. HANDLE SYSTEM SETTINGS - MATCH PHASES (Admin Only)
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['setting_action'])) {
+    if ($_SESSION['role'] == 'admin') {
+        
+        // --- ADD NEW MATCH PHASE ---
+        if ($_POST['setting_action'] == 'add_phase') {
+            $phase_name = trim($_POST['phase_name']);
+            
+            if (!empty($phase_name)) {
+                // 1. Calculate the next available phase_order automatically
+                $order_query = mysqli_query($conn, "SELECT COALESCE(MAX(phase_order), 0) AS max_order FROM match_phases");
+                $order_row = mysqli_fetch_assoc($order_query);
+                $next_order = $order_row['max_order'] + 1;
+
+                // 2. Secure Prepared Statement inserting BOTH name and order
+                $stmt = mysqli_prepare($conn, "INSERT INTO match_phases (phase_name, phase_order) VALUES (?, ?)");
+                if ($stmt) {
+                    // "si" means String (phase_name) and Integer (phase_order)
+                    mysqli_stmt_bind_param($stmt, "si", $phase_name, $next_order);
+                    
+                    if (mysqli_stmt_execute($stmt)) {
+                        $_SESSION['setting_msg'] = "<div style='color: white; background: #28a745; padding: 10px; border-radius: 4px; margin-bottom: 15px;'>✅ Match phase '$phase_name' added successfully!</div>";
+                    }
+                    mysqli_stmt_close($stmt);
+                }
+            }
+            header("Location: dashboard.php");
+            exit();
+        }
+
+        // --- DELETE MATCH PHASE ---
+        if ($_POST['setting_action'] == 'delete_phase') {
+            $id = (int)$_POST['phase_id'];
+            
+            // Secure Prepared Statement
+            $stmt = mysqli_prepare($conn, "DELETE FROM match_phases WHERE id = ?");
+            if ($stmt) {
+                mysqli_stmt_bind_param($stmt, "i", $id);
+                if (mysqli_stmt_execute($stmt)) {
+                    $_SESSION['setting_msg'] = "<div style='color: white; background: #dc3545; padding: 10px; border-radius: 4px; margin-bottom: 15px;'>🗑️ Match phase deleted.</div>";
+                }
+                mysqli_stmt_close($stmt);
+            }
+            header("Location: dashboard.php");
+            exit();
+        }
+    }
+}
+// --- REORDER MATCH PHASE ---
+        if (isset($_POST['setting_action']) && $_POST['setting_action'] == 'move_phase') {
+            $id = (int)$_POST['phase_id'];
+            $direction = $_POST['direction']; // 'up' or 'down'
+
+            // Get the current order of the phase we clicked
+            $curr_query = mysqli_query($conn, "SELECT phase_order FROM match_phases WHERE id = $id");
+            if ($row = mysqli_fetch_assoc($curr_query)) {
+                $current_order = $row['phase_order'];
+
+                // Find the neighbor to swap with
+                if ($direction == 'up') {
+                    // Find the phase right above it
+                    $target_query = mysqli_query($conn, "SELECT id, phase_order FROM match_phases WHERE phase_order < $current_order ORDER BY phase_order DESC LIMIT 1");
+                } else {
+                    // Find the phase right below it
+                    $target_query = mysqli_query($conn, "SELECT id, phase_order FROM match_phases WHERE phase_order > $current_order ORDER BY phase_order ASC LIMIT 1");
+                }
+
+                if ($target = mysqli_fetch_assoc($target_query)) {
+                    $target_id = $target['id'];
+                    $target_order = $target['phase_order'];
+
+                    // Swap their phase_order numbers in the database
+                    mysqli_query($conn, "UPDATE match_phases SET phase_order = $target_order WHERE id = $id");
+                    mysqli_query($conn, "UPDATE match_phases SET phase_order = $current_order WHERE id = $target_id");
+                }
+            }
+            header("Location: dashboard.php");
+            exit();
+        }
+        
+// --- ADD NEW VENUE ---
+        if (isset($_POST['setting_action']) && $_POST['setting_action'] == 'add_venue') {
+            // We use strtoupper() to force the text to match your existing uppercase venue data
+            $venue_name = strtoupper(trim($_POST['venue_name'])); 
+            
+            if (!empty($venue_name)) {
+                $stmt = mysqli_prepare($conn, "INSERT INTO venues_list (venue_name) VALUES (?)");
+                if ($stmt) {
+                    mysqli_stmt_bind_param($stmt, "s", $venue_name);
+                    if (mysqli_stmt_execute($stmt)) {
+                        $_SESSION['setting_msg'] = "<div style='color: white; background: #28a745; padding: 10px; border-radius: 4px; margin-bottom: 15px;'>✅ Venue '$venue_name' added successfully!</div>";
+                    }
+                    mysqli_stmt_close($stmt);
+                }
+            }
+            header("Location: dashboard.php");
+            exit();
+        }
+
+        // --- DELETE VENUE ---
+        if (isset($_POST['setting_action']) && $_POST['setting_action'] == 'delete_venue') {
+            $id = (int)$_POST['venue_id'];
+            
+            $stmt = mysqli_prepare($conn, "DELETE FROM venues_list WHERE id = ?");
+            if ($stmt) {
+                mysqli_stmt_bind_param($stmt, "i", $id);
+                if (mysqli_stmt_execute($stmt)) {
+                    $_SESSION['setting_msg'] = "<div style='color: white; background: #dc3545; padding: 10px; border-radius: 4px; margin-bottom: 15px;'>🗑️ Venue deleted.</div>";
+                }
+                mysqli_stmt_close($stmt);
+            }
+            header("Location: dashboard.php");
+            exit();
+        }
 ?>
