@@ -171,7 +171,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['setting_action'])) {
             header("Location: dashboard.php");
             exit();
         }
-        
+
 // --- ADD NEW VENUE ---
         if (isset($_POST['setting_action']) && $_POST['setting_action'] == 'add_venue') {
             // We use strtoupper() to force the text to match your existing uppercase venue data
@@ -200,6 +200,41 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['setting_action'])) {
                 mysqli_stmt_bind_param($stmt, "i", $id);
                 if (mysqli_stmt_execute($stmt)) {
                     $_SESSION['setting_msg'] = "<div style='color: white; background: #dc3545; padding: 10px; border-radius: 4px; margin-bottom: 15px;'>🗑️ Venue deleted.</div>";
+                }
+                mysqli_stmt_close($stmt);
+            }
+            header("Location: dashboard.php");
+            exit();
+        }
+
+        // --- ADD NEW SPORT ---
+        if (isset($_POST['setting_action']) && $_POST['setting_action'] == 'add_sport') {
+            $sport_name = trim($_POST['sport_name']);
+            $format_type = $_POST['format_type']; // Will be 'h2h' or 'group'
+            
+            if (!empty($sport_name) && !empty($format_type)) {
+                $stmt = mysqli_prepare($conn, "INSERT INTO sports_list (sport_name, format_type) VALUES (?, ?)");
+                if ($stmt) {
+                    mysqli_stmt_bind_param($stmt, "ss", $sport_name, $format_type);
+                    if (mysqli_stmt_execute($stmt)) {
+                        $_SESSION['setting_msg'] = "<div style='color: white; background: #28a745; padding: 10px; border-radius: 4px; margin-bottom: 15px;'>✅ Sport '$sport_name' added successfully!</div>";
+                    }
+                    mysqli_stmt_close($stmt);
+                }
+            }
+            header("Location: dashboard.php");
+            exit();
+        }
+
+        // --- DELETE SPORT ---
+        if (isset($_POST['setting_action']) && $_POST['setting_action'] == 'delete_sport') {
+            $id = (int)$_POST['sport_id'];
+            
+            $stmt = mysqli_prepare($conn, "DELETE FROM sports_list WHERE id = ?");
+            if ($stmt) {
+                mysqli_stmt_bind_param($stmt, "i", $id);
+                if (mysqli_stmt_execute($stmt)) {
+                    $_SESSION['setting_msg'] = "<div style='color: white; background: #dc3545; padding: 10px; border-radius: 4px; margin-bottom: 15px;'>🗑️ Sport deleted.</div>";
                 }
                 mysqli_stmt_close($stmt);
             }

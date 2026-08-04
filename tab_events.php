@@ -66,7 +66,7 @@
         <table>
             <thead>
                 <tr>
-                    <th>Event Name</th>
+                    <th>Sport / Phases</th>
                     <th style="min-width: 250px;">Contender / Venue</th>
                     <th class="center">Date</th>
                     

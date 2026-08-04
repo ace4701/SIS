@@ -112,6 +112,57 @@
                         </table>
                     </div>
                 </div>
+
+                <!-- CARD: SPORTS CATEGORIES -->
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                    <h4 style="margin-top: 0; color: #da251d; border-bottom: 2px solid #da251d; padding-bottom: 5px; display: inline-block;">Sports Categories</h4>
+                    
+                    <!-- Add Form -->
+                    <form method="POST" action="dashboard.php" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; margin-top: 15px;">
+                        <input type="hidden" name="setting_action" value="add_sport">
+                        
+                        <!-- Top Row: Sport Name Input -->
+                        <input type="text" name="sport_name" placeholder="e.g. Ping Pong" required style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box;">
+                        
+                        <!-- Bottom Row: Dropdown and Button -->
+                        <div style="display: flex; gap: 10px;">
+                            <select name="format_type" required style="flex: 1; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; background: white;">
+                                <option value="h2h">1 vs 1 (H2H)</option>
+                                <option value="group">Group / Heat</option>
+                            </select>
+                            
+                            <button type="submit" style="background: #da251d; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold;">Add</button>
+                        </div>
+                    </form>
+
+                    <!-- Data Table -->
+                    <div style="max-height: 300px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 4px;">
+                        <table style="width: 100%; border-collapse: collapse; background: white; font-size: 14px;">
+                            <tbody>
+                                <?php
+                                $sports_query = mysqli_query($conn, "SELECT id, sport_name, format_type FROM sports_list ORDER BY sport_name ASC");
+                                while ($sport = mysqli_fetch_assoc($sports_query)) {
+                                    echo "<tr style='border-bottom: 1px solid #eee;'>";
+                                    echo "<td style='padding: 10px'>" . htmlspecialchars($sport['sport_name']) . "</td>";
+                                    
+                                    // Display the format type as a tiny badge
+                                    echo "<td style='padding: 10px; color: #666; font-size: 12px;'>" . strtoupper($sport['format_type']) . "</td>";
+                                    
+                                    echo "<td style='padding: 10px; text-align: right; width: 40px;'>";
+                                    // Heavy warning on deletion to prevent orphaned database records!
+                                    echo "<form method='POST' action='dashboard.php' onsubmit='return confirm(\"WARNING: If you delete a sport that already has scheduled matches, those matches will break! Are you sure?\");' style='margin:0;'>";
+                                    echo "<input type='hidden' name='setting_action' value='delete_sport'>";
+                                    echo "<input type='hidden' name='sport_id' value='" . $sport['id'] . "'>";
+                                    echo "<button type='submit' style='background: transparent; color: #dc3545; border: none; cursor: pointer; font-size: 16px; padding: 2px 5px;' title='Delete'>🗑️</button>";
+                                    echo "</form>";
+                                    echo "</td>";
+                                    echo "</tr>";
+                                }
+                                ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
                 
                 <!-- Future Cards (Venues, Sports) will go here later -->
 
