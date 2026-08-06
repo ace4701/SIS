@@ -14,37 +14,21 @@ $data = json_decode(file_get_contents("php://input"), true);
 // --- 1. ADD EVENT LOGIC ---
 if (isset($data['action']) && $data['action'] == 'add_event') {
     $event_name = mysqli_real_escape_string($conn, $data['event_name']);
+    $event_discipline = mysqli_real_escape_string($conn, $data['event_discipline']); // <-- NEW
     $venue = mysqli_real_escape_string($conn, $data['venue']);
     $event_date = mysqli_real_escape_string($conn, $data['event_date']);
-    $match_phase = mysqli_real_escape_string($conn, $data['match_phase']); // <-- NEW
+    $event_time = mysqli_real_escape_string($conn, $data['event_time']); // <-- NEW
+    $match_phase = mysqli_real_escape_string($conn, $data['match_phase']); 
     
     $states_json = json_encode($data['states']);
     $states_escaped = mysqli_real_escape_string($conn, $states_json);
 
-    // Added match_phase to the INSERT query
-    $insert_query = "INSERT INTO sports_events (event_name, venue, event_date, match_phase, participating_states) 
-                     VALUES ('$event_name', '$venue', '$event_date', '$match_phase', '$states_escaped')";
+    // Added discipline and time to the INSERT query
+    $insert_query = "INSERT INTO sports_events (event_name, event_discipline, venue, event_date, event_time, match_phase, participating_states) 
+                     VALUES ('$event_name', '$event_discipline', '$venue', '$event_date', '$event_time', '$match_phase', '$states_escaped')";
     
     if (mysqli_query($conn, $insert_query)) {
-        $formatted_date = date('d M Y', strtotime($event_date));
-        
-        $participants_html = "TBD";
-        if (!empty($data['states']) && is_array($data['states'])) {
-            if (count($data['states']) == 2 && $data['format_type'] == 'h2h') {
-                $participants_html = "<span style='color:#da251d; font-weight:bold;'>" . htmlspecialchars($data['states'][0]) . "</span> <span style='font-size:11px; color:#777; margin:0 5px;'>vs</span> <span style='color:#0056b3; font-weight:bold;'>" . htmlspecialchars($data['states'][1]) . "</span>";
-            } else {
-                $participants_html = htmlspecialchars(implode(', ', $data['states']));
-            }
-        }
-        
-        echo json_encode([
-            'status' => 'success', 
-            // Combine Sport and Phase for a beautiful display!
-            'event_name' => htmlspecialchars($event_name) . " <br><span style='font-size:12px; color:#666;'>➔ " . htmlspecialchars($match_phase) . "</span>", 
-            'venue' => htmlspecialchars($venue), 
-            'date' => $formatted_date,
-            'participants' => $participants_html
-        ]);
+        echo json_encode(['status' => 'success']);
     } else {
         echo json_encode(['status' => 'error', 'message' => 'Database error']);
     }
@@ -79,9 +63,11 @@ if ($data['action'] == 'fetch_event') {
             'status' => 'success',
             'id' => $event['id'],
             'event_name' => $event['event_name'] ?? '',
+            'event_discipline' => $event['event_discipline'] ?? '',
             'match_phase' => $event['match_phase'] ?? '',
             'venue' => $event['venue'] ?? '',
             'event_date' => $event['event_date'] ?? '',
+            'event_time' => $event['event_time'] ?? '',
             'format_type' => $event['format_type'] ?? '',
             'states' => json_decode($states_raw, true),
             
@@ -100,33 +86,18 @@ if ($data['action'] == 'fetch_event') {
 if (isset($data['action']) && $data['action'] == 'edit_event') {
     $event_id = (int)$data['event_id'];
     $event_name = mysqli_real_escape_string($conn, $data['event_name']);
+    $event_discipline = mysqli_real_escape_string($conn, $data['event_discipline']); // <-- NEW
     $venue = mysqli_real_escape_string($conn, $data['venue']);
     $event_date = mysqli_real_escape_string($conn, $data['event_date']);
-    $match_phase = mysqli_real_escape_string($conn, $data['match_phase']); // <-- NEW
+    $event_time = mysqli_real_escape_string($conn, $data['event_time']); // <-- NEW
+    $match_phase = mysqli_real_escape_string($conn, $data['match_phase']); 
     $states_json = mysqli_real_escape_string($conn, json_encode($data['states']));
 
-    // Added match_phase to UPDATE query
-    $update_query = "UPDATE sports_events SET event_name='$event_name', venue='$venue', event_date='$event_date', match_phase='$match_phase', participating_states='$states_json' WHERE id=$event_id";
+    // Added discipline and time to the UPDATE query
+    $update_query = "UPDATE sports_events SET event_name='$event_name', event_discipline='$event_discipline', venue='$venue', event_date='$event_date', event_time='$event_time', match_phase='$match_phase', participating_states='$states_json' WHERE id=$event_id";
     
     if (mysqli_query($conn, $update_query)) {
-        $formatted_date = date('d M Y', strtotime($event_date));
-        $participants_html = "TBD";
-        if (!empty($data['states']) && is_array($data['states'])) {
-            if (count($data['states']) == 2 && $data['format_type'] == 'h2h') {
-                $participants_html = "<span style='color:#da251d; font-weight:bold;'>" . htmlspecialchars($data['states'][0]) . "</span> <span style='font-size:11px; color:#777; margin:0 5px;'>vs</span> <span style='color:#0056b3; font-weight:bold;'>" . htmlspecialchars($data['states'][1]) . "</span>";
-            } else {
-                $participants_html = htmlspecialchars(implode(', ', $data['states']));
-            }
-        }
-        
-        echo json_encode([
-            'status' => 'success', 
-            // Combine Sport and Phase for a beautiful display!
-            'event_name' => htmlspecialchars($event_name) . " <br><span style='font-size:12px; color:#666;'>➔ " . htmlspecialchars($match_phase) . "</span>", 
-            'venue' => htmlspecialchars($venue), 
-            'date' => $formatted_date,
-            'participants' => $participants_html
-        ]);
+        echo json_encode(['status' => 'success']);
     } else {
         echo json_encode(['status' => 'error', 'message' => 'Database error']);
     }
