@@ -27,10 +27,13 @@
                         <button type="submit" style="background: #da251d; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold;">Add</button>
                     </form>
 
+                    <!-- Search Bar -->
+                    <input type="text" id="search_phases" onkeyup="filterMDM('search_phases', 'tbody_phases')" placeholder="🔍 Search match phases..." style="width: 100%; padding: 6px 10px; margin-bottom: 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; background: #fff;">
+
                     <!-- Data Table -->
                     <div style="max-height: 300px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 4px;">
                         <table style="width: 100%; border-collapse: collapse; background: white; font-size: 14px;">
-                            <tbody>
+                            <tbody id = "tbody_phases">
                                 <?php
                                 // Notice we changed the ORDER BY to phase_order ASC
                                 $phases_query = mysqli_query($conn, "SELECT id, phase_name, phase_order FROM match_phases ORDER BY phase_order ASC");
@@ -88,10 +91,13 @@
                         <button type="submit" style="background: #da251d; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold;">Add</button>
                     </form>
 
+                    <!-- Search Bar -->
+                    <input type="text" id="search_venues" onkeyup="filterMDM('search_venues', 'tbody_venues')" placeholder="🔍 Search venues..." style="width: 100%; padding: 6px 10px; margin-bottom: 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; background: #fff;">
+
                     <!-- Data Table -->
                     <div style="max-height: 300px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 4px;">
                         <table style="width: 100%; border-collapse: collapse; background: white; font-size: 14px;">
-                            <tbody>
+                            <tbody id="tbody_venues">
                                 <?php
                                 // Order alphabetically so the dropdowns look neat
                                 $venues_query = mysqli_query($conn, "SELECT id, venue_name FROM venues_list ORDER BY venue_name ASC");
@@ -135,10 +141,13 @@
                         </div>
                     </form>
 
+                    <!-- Search Bar -->
+                    <input type="text" id="search_sports" onkeyup="filterMDM('search_sports', 'tbody_sports')" placeholder="🔍 Search sports..." style="width: 100%; padding: 6px 10px; margin-bottom: 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; background: #fff;">
+
                     <!-- Data Table -->
                     <div style="max-height: 300px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 4px;">
                         <table style="width: 100%; border-collapse: collapse; background: white; font-size: 14px;">
-                            <tbody>
+                            <tbody id="tbody_sports">
                                 <?php
                                 $sports_query = mysqli_query($conn, "SELECT id, sport_name, format_type FROM sports_list ORDER BY sport_name ASC");
                                 while ($sport = mysqli_fetch_assoc($sports_query)) {
@@ -175,10 +184,13 @@
                         <button type="submit" style="background: #da251d; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold;">Add</button>
                     </form>
 
+                    <!-- Search Bar -->
+                    <input type="text" id="search_disciplines" onkeyup="filterMDM('search_disciplines', 'tbody_disciplines')" placeholder="🔍 Search disciplines..." style="width: 100%; padding: 6px 10px; margin-bottom: 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; background: #fff;">
+
                     <!-- Data Table -->
                     <div style="max-height: 300px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 4px;">
                         <table style="width: 100%; border-collapse: collapse; background: white; font-size: 14px;">
-                            <tbody>
+                            <tbody id="tbody_disciplines">
                                 <?php
                                 $disc_query = mysqli_query($conn, "SELECT id, discipline_name FROM disciplines_list ORDER BY discipline_name ASC");
                                 while ($disc = mysqli_fetch_assoc($disc_query)) {
@@ -204,5 +216,20 @@
             </div>
         </div>
     </div>
+
+<!-- MDM Live Search Engine -->
+<script>
+function filterMDM(inputId, tbodyId) {
+    let input = document.getElementById(inputId).value.toLowerCase();
+    let rows = document.getElementById(tbodyId).getElementsByTagName("tr");
+    
+    for (let row of rows) {
+        // We only search the first column (the name of the item)
+        let text = row.cells[0].textContent.toLowerCase();
+        row.style.display = text.includes(input) ? "" : "none";
+    }
+}
+</script>
+
 </div>
 <?php endif; ?>
