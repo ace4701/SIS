@@ -88,6 +88,14 @@ function getStateAcronym($state_name) {
                 <?php if($_SESSION['role'] == 'admin' || $_SESSION['role'] == 'staff'): ?>
                     <button onclick="openAddEventModal()" style="background: #28a745; color: white; padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; white-space: nowrap;">+ Add Event</button>
                 <?php endif; ?>
+
+                <!-- NEW: Export Buttons -->
+                <button onclick="exportToExcel()" style="background: #198754; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-right: 5px;">
+                    📊 Export Excel
+                </button>
+                <button onclick="printSchedule()" style="background: #dc3545; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-right: 5px;">
+                   🖨️ Print / PDF
+                </button> 
             </div>
         </div>
 

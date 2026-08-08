@@ -146,7 +146,40 @@ $recent_activities = mysqli_query($conn, "SELECT event_name, match_phase, gold_w
         .select2-container--default .select2-selection--single .select2-selection__arrow {
             height: 36px !important;
         }
+
+        /* --- PRINT / PDF EXPORT STYLES --- */
+        @media print {
+            /* Hide the menus, tabs, and export buttons */
+            .sidebar, .top-navbar, .tabs-container, .table-controls, .modal {
+                display: none !important;
+            }
+            
+            /* Expand the content to fill the paper */
+            .main-content, .generic-container {
+                margin: 0 !important;
+                padding: 0 !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                box-shadow: none !important;
+            }
+
+            /* Hide the Action column (Edit/Delete buttons) */
+            th:last-child, td:last-child {
+                display: none !important;
+            }
+
+            /* Ensure background colors (like date banners and badges) print perfectly */
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+        }
+
     </style>
+
+    <!-- SheetJS for Excel Export -->
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+
 </head>
 <body>
 

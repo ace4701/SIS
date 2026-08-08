@@ -1364,4 +1364,46 @@ function showToast(message, type = 'success') {
     }, 3000);
 }
 
+// --- PRINT / PDF EXPORT ---
+function printSchedule() {
+    // Triggers the browser's native, high-quality print dialog
+    window.print();
+}
+
+// --- EXCEL EXPORT (SHEETJS) ---
+function exportToExcel() {
+    // 1. Grab the table body
+    let tableBody = document.getElementById("events-table-body");
+    if (!tableBody) {
+        alert("No table data found.");
+        return;
+    }
+
+    // 2. Clone the entire table so we don't accidentally ruin the live view
+    let tableClone = tableBody.parentNode.cloneNode(true);
+
+    // 3. Clean up the clone for Excel
+    let rows = tableClone.getElementsByTagName("tr");
+    for (let i = rows.length - 1; i >= 0; i--) {
+        // Remove rows that are currently hidden by the user's active filters
+        if (rows[i].style.display === "none") {
+            rows[i].parentNode.removeChild(rows[i]);
+            continue;
+        }
+        
+        // Remove the Action column (Edit/Delete) since we don't need it in Excel
+        let cells = rows[i].getElementsByTagName("th");
+        if(cells.length > 0) cells[cells.length - 1].parentNode.removeChild(cells[cells.length - 1]);
+        
+        cells = rows[i].getElementsByTagName("td");
+        if(cells.length > 0) cells[cells.length - 1].parentNode.removeChild(cells[cells.length - 1]);
+    }
+
+    // 4. Convert to Excel Workbook
+    let workbook = XLSX.utils.table_to_book(tableClone, { sheet: "SUKMA Schedule" });
+
+    // 5. Trigger the download!
+    XLSX.writeFile(workbook, "SUKMA_2026_Schedule.xlsx");
+}
+
 </script>
