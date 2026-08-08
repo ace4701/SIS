@@ -14,7 +14,7 @@
             ?>
 
             <!-- Settings Grid Container -->
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-top: 20px;">
                 
                 <!-- CARD: MATCH PHASES -->
                 <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0;">
@@ -164,6 +164,41 @@
                     </div>
                 </div>
                 
+                <!-- CARD: DISCIPLINES -->
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                    <h4 style="margin-top: 0; color: #da251d; border-bottom: 2px solid #da251d; padding-bottom: 5px; display: inline-block;">Disciplines / Categories</h4>
+                    
+                    <!-- Add Form -->
+                    <form method="POST" action="dashboard.php" style="display: flex; gap: 10px; margin-bottom: 15px; margin-top: 15px;">
+                        <input type="hidden" name="setting_action" value="add_discipline">
+                        <input type="text" name="discipline_name" placeholder="e.g. Men's Pairs" required style="flex: 1; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                        <button type="submit" style="background: #da251d; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold;">Add</button>
+                    </form>
+
+                    <!-- Data Table -->
+                    <div style="max-height: 300px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 4px;">
+                        <table style="width: 100%; border-collapse: collapse; background: white; font-size: 14px;">
+                            <tbody>
+                                <?php
+                                $disc_query = mysqli_query($conn, "SELECT id, discipline_name FROM disciplines_list ORDER BY discipline_name ASC");
+                                while ($disc = mysqli_fetch_assoc($disc_query)) {
+                                    echo "<tr style='border-bottom: 1px solid #eee;'>";
+                                    echo "<td style='padding: 10px;'>" . htmlspecialchars($disc['discipline_name']) . "</td>";
+                                    echo "<td style='padding: 10px; text-align: right; width: 40px;'>";
+                                    echo "<form method='POST' action='dashboard.php' onsubmit='return confirm(\"Delete this discipline?\");' style='margin:0;'>";
+                                    echo "<input type='hidden' name='setting_action' value='delete_discipline'>";
+                                    echo "<input type='hidden' name='discipline_id' value='" . $disc['id'] . "'>";
+                                    echo "<button type='submit' style='background: transparent; color: #dc3545; border: none; cursor: pointer; font-size: 16px; padding: 2px 5px;' title='Delete'>🗑️</button>";
+                                    echo "</form>";
+                                    echo "</td>";
+                                    echo "</tr>";
+                                }
+                                ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
                 <!-- Future Cards (Venues, Sports) will go here later -->
 
             </div>

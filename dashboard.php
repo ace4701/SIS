@@ -3,12 +3,13 @@ require_once 'auth_guard.php';
 require_once 'dashboard_processor.php';
 
 // Fetch Data Queries
-$events_result = mysqli_query($conn, "SELECT * FROM sports_events ORDER BY CASE WHEN match_status = 'Completed' THEN 2 ELSE 1 END, event_date ASC");
+$events_result = mysqli_query($conn, "SELECT * FROM sports_events ORDER BY CASE WHEN match_status = 'Completed' THEN 2 ELSE 1 END, event_date ASC, event_time ASC");
 $news_result = mysqli_query($conn, "SELECT id, title, content, author, created_at FROM news ORDER BY created_at DESC");
 $users_result = mysqli_query($conn, "SELECT id, username, email, role, created_at FROM users ORDER BY role ASC, created_at DESC");
 $sports_query = mysqli_query($conn, "SELECT sport_name, format_type FROM sports_list ORDER BY sport_name ASC");
 $venues_query = mysqli_query($conn, "SELECT venue_name FROM venues_list ORDER BY venue_name ASC");
 $phases_query = mysqli_query($conn, "SELECT phase_name FROM match_phases ORDER BY phase_order ASC");
+$disciplines_query = mysqli_query($conn, "SELECT discipline_name FROM disciplines_list ORDER BY discipline_name ASC");
 $athletes_query = mysqli_query($conn, "SELECT * FROM athletes ORDER BY contingent_state ASC, gender ASC, full_name ASC");    
 
 $all_states = [
@@ -127,6 +128,25 @@ $recent_activities = mysqli_query($conn, "SELECT event_name, match_phase, gold_w
     <title>SIS - Main Dashboard</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- jQuery and Select2 Engine for Searchable Dropdowns -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+    <!-- Custom CSS to make Select2 match your system's styling -->
+    <style>
+        .select2-container .select2-selection--single {
+            height: 38px !important;
+            border: 1px solid #ccc !important;
+            border-radius: 4px !important;
+            display: flex !important;
+            align-items: center !important;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__arrow {
+            height: 36px !important;
+        }
+    </style>
 </head>
 <body>
 
@@ -164,7 +184,7 @@ if ($latest_match) $ticker_text .= "🏆 <span style='color: #ffcccc;'>BREAKING:
     <div class="ticker"><?php echo $ticker_text; ?></div>
 </div>
 
-<div class="tab-container">
+<div class="tabs-container" style="position: sticky; top: 0; z-index: 1000; background: rgba(248, 249, 250, 0.95); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); padding-top: 15px; border-bottom: 1px solid #cbd5e1; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05); text-align: center;">
     <button class="chrome-tab" onclick="openTab(event, 'Dashboard')" id="defaultOpen">Dashboard</button>
     <button class="chrome-tab" onclick="openTab(event, 'Events')">Events Schedule</button>
     <button class="chrome-tab" onclick="openTab(event, 'News')">News</button>

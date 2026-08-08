@@ -1,4 +1,31 @@
 <script>
+
+// --- INITIALIZE SEARCHABLE DROPDOWNS (SELECT2) ---
+    $(document).ready(function() {
+        
+        // 1. Upgrade Filter Dropdowns
+        $('#filter_sport, #filter_phase, #filter_venue').select2({
+            width: '100%'
+        });
+
+        // 2. Upgrade Add Event Modal Dropdowns
+        $('#modal_event_name, #modal_venue, #modal_match_phase, #modal_event_discipline').select2({
+            dropdownParent: $('#addEventModal'), // Required so it doesn't hide behind the modal!
+            width: '100%'
+        });
+
+        // 3. Upgrade Edit Event Modal Dropdowns
+        $('#edit_modal_event_name, #edit_modal_venue, #edit_modal_match_phase, #edit_modal_event_discipline').select2({
+            dropdownParent: $('#editEventModal'),
+            width: '100%'
+        });
+
+        // 4. JavaScript Bridge: Ensure your Shape-Shifting format logic still works!
+        $('#modal_event_name, #edit_modal_event_name').on('select2:select', function (e) {
+            this.dispatchEvent(new Event('change'));
+        });
+    });
+
     function openTab(evt, tabName) {
         // Save the active tab to localStorage so it survives a page refresh
         localStorage.setItem('activeTab', tabName);
@@ -459,12 +486,15 @@ function closeAddEventModal() {
 }
 
 // THE ULTIMATE UNIFIED EVENT SUBMITTER
+// THE ULTIMATE UNIFIED EVENT SUBMITTER
 function submitNewEvent(event) {
     event.preventDefault(); // Stop default form submit
 
     let eventName = document.getElementById('modal_event_name').value;
+    let eventDiscipline = document.getElementById('modal_event_discipline').value; // Grab the Discipline
     let venue = document.getElementById('modal_venue').value;
     let eventDate = document.getElementById('modal_event_date').value;
+    let eventTime = document.getElementById('modal_event_time').value; // Grab the Time
     let matchPhase = document.getElementById('modal_match_phase').value;
 
     let participatingStates = [];
@@ -487,8 +517,10 @@ function submitNewEvent(event) {
     let payload = {
         action: 'add_event',
         event_name: eventName,
+        event_discipline: eventDiscipline, // Send Discipline
         venue: venue,
         event_date: eventDate,
+        event_time: eventTime, // Send Time
         match_phase: matchPhase,
         states: participatingStates,
         format_type: format 
@@ -618,7 +650,6 @@ function closeEditEventModal() {
 }
 
 function openEditEventModal(eventId) {
-    // 1. Fetch the existing data
     fetch('event_action.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -627,17 +658,19 @@ function openEditEventModal(eventId) {
     .then(response => response.json())
     .then(data => {
         if(data.status === 'success') {
-            // 2. Populate basic fields
             document.getElementById('edit_event_id').value = data.id;
-            document.getElementById('edit_modal_event_name').value = data.event_name;
-            document.getElementById('edit_modal_venue').value = data.venue;
-            document.getElementById('edit_modal_event_date').value = data.event_date;
-            document.getElementById('edit_modal_match_phase').value = data.match_phase;
             
-            // 3. Trigger shape-shifting UI to build the inputs
+            // Use jQuery .val().trigger('change') so Select2 updates the display box!
+            $('#edit_modal_event_name').val(data.event_name).trigger('change');
+            $('#edit_modal_event_discipline').val(data.event_discipline || '').trigger('change');
+            $('#edit_modal_venue').val(data.venue).trigger('change');
+            $('#edit_modal_match_phase').val(data.match_phase).trigger('change');
+            
+            document.getElementById('edit_modal_event_date').value = data.event_date;
+            document.getElementById('edit_modal_event_time').value = data.event_time || ''; 
+            
             renderEditStateInputs(data.states, data.format_type);
             
-            // 4. Show the modal
             document.getElementById('editEventModal').style.display = 'flex';
         }
     });
@@ -689,8 +722,10 @@ function submitEditEvent(event) {
 
     let eventId = document.getElementById('edit_event_id').value;
     let eventName = document.getElementById('edit_modal_event_name').value;
+    let eventDiscipline = document.getElementById('edit_modal_event_discipline').value; // NEW
     let venue = document.getElementById('edit_modal_venue').value;
     let eventDate = document.getElementById('edit_modal_event_date').value;
+    let eventTime = document.getElementById('edit_modal_event_time').value; // NEW
     let matchPhase = document.getElementById('edit_modal_match_phase').value;
 
     let participatingStates = [];
@@ -709,6 +744,7 @@ function submitEditEvent(event) {
         }
     }
 
+    // Include the new fields in the payload!
     fetch('event_action.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -716,8 +752,10 @@ function submitEditEvent(event) {
             action: 'edit_event', 
             event_id: eventId,
             event_name: eventName, 
+            event_discipline: eventDiscipline, // NEW
             venue: venue, 
             event_date: eventDate,
+            event_time: eventTime, // NEW
             match_phase: matchPhase,
             states: participatingStates,
             format_type: format
@@ -767,52 +805,51 @@ function applyAdvancedFilters() {
     let dateInput = document.getElementById("filter_date");
     let phaseInput = document.getElementById("filter_phase"); 
 
-    let searchVal = searchInput ? searchInput.value.toLowerCase() : "";
-    let sportVal = sportInput ? sportInput.value.toLowerCase() : "";
-    let venueVal = venueInput ? venueInput.value.toLowerCase() : "";
+    let searchVal = searchInput ? searchInput.value.toLowerCase().trim() : "";
+    let sportVal = sportInput ? sportInput.value.toLowerCase().trim() : "";
+    let venueVal = venueInput ? venueInput.value.toLowerCase().trim() : "";
     let dateVal = dateInput ? dateInput.value : "";
-    let phaseVal = phaseInput ? phaseInput.value.toLowerCase() : ""; 
+    let phaseVal = phaseInput ? phaseInput.value.toLowerCase().trim() : ""; 
     
-    // Check if ANY filter is currently being used
     let hasActiveFilters = (searchVal !== "" || sportVal !== "" || venueVal !== "" || dateVal !== "" || phaseVal !== "");
 
     let tableBody = document.getElementById("events-table-body");
+    if (!tableBody) return; 
     let rows = tableBody.getElementsByTagName("tr");
 
+    // --- PASS 1: Filter the actual event rows and the divider ---
     for (let i = 0; i < rows.length; i++) {
         
-        // 1. Divider Logic: Hide the divider if filters are active OR if toggle is on
         if (rows[i].classList.contains('completed-divider')) {
-            if (isCompletedHidden || hasActiveFilters) {
-                rows[i].style.display = "none";
-            } else {
-                rows[i].style.display = "";
-            }
-            continue; // Skip the rest of the loop for the divider row!
+            rows[i].style.display = (isCompletedHidden || hasActiveFilters) ? "none" : "";
+            continue; 
         }
 
-        // 2. Normal Row Filtering
-        let cols = rows[i].getElementsByTagName("td");
-        if (cols.length > 2) { 
-            let rowText = rows[i].innerText.toLowerCase(); 
-            let colSport = cols[0].innerText.toLowerCase(); 
-            let colVenue = cols[1].innerText.toLowerCase(); 
-            
-            let colDateRaw = cols[2].getAttribute("data-raw-date") || ""; 
-            let colPhaseRaw = cols[0].getAttribute("data-match-phase") || ""; 
-            let colStatusRaw = rows[i].getAttribute("data-status") || ""; // Grab the completion status
-            colPhaseRaw = colPhaseRaw.toLowerCase(); 
+        if (rows[i].classList.contains('date-header-row')) {
+            continue; 
+        }
 
-            let matchesSearch = (searchVal === "" || rowText.indexOf(searchVal) > -1);
-            let matchesSport = (sportVal === "" || colSport.indexOf(sportVal) > -1);
-            let matchesVenue = (venueVal === "" || colVenue.indexOf(venueVal) > -1);
-            let matchesDate = (dateVal === "" || colDateRaw === dateVal);
-            let matchesPhase = (phaseVal === "" || colPhaseRaw === phaseVal); 
+        let cols = rows[i].getElementsByTagName("td");
+        
+        if (cols.length >= 7) { 
+            // Using textContent is much safer than innerText for exact string matching
+            let rowText = rows[i].textContent.toLowerCase(); 
+            let colSport = cols[1].textContent.toLowerCase(); 
+            let colPhase = cols[3].textContent.toLowerCase();
+            let colVenue = cols[5].textContent.toLowerCase(); 
             
-            // NEW: Does this row violate the Hide switch?
+            let colDateRaw = cols[0].getAttribute("data-raw-date") || ""; 
+            let colStatusRaw = rows[i].getAttribute("data-status") || ""; 
+
+            // Using .includes() to safely find the substring anywhere in the cell
+            let matchesSearch = (searchVal === "" || rowText.includes(searchVal));
+            let matchesSport = (sportVal === "" || colSport.includes(sportVal));
+            let matchesVenue = (venueVal === "" || colVenue.includes(venueVal));
+            let matchesDate = (dateVal === "" || colDateRaw === dateVal);
+            let matchesPhase = (phaseVal === "" || colPhase.includes(phaseVal)); 
+            
             let isRowHiddenByToggle = (isCompletedHidden && colStatusRaw === "Completed");
 
-            // Show only if it passes all active filters AND the hide toggle
             if (matchesSearch && matchesSport && matchesVenue && matchesDate && matchesPhase && !isRowHiddenByToggle) {
                 rows[i].style.display = "";
             } else {
@@ -820,21 +857,46 @@ function applyAdvancedFilters() {
             }
         }
     }
+
+    // --- PASS 2: Hide Orphaned Date Headers ---
+    let currentHeader = null;
+    let headerHasVisibleRows = false;
+
+    for (let i = 0; i < rows.length; i++) {
+        if (rows[i].classList.contains('date-header-row')) {
+            if (currentHeader !== null) {
+                currentHeader.style.display = headerHasVisibleRows ? "" : "none";
+            }
+            currentHeader = rows[i];
+            headerHasVisibleRows = false; 
+        } else if (rows[i].classList.contains('schedule-row')) {
+            if (rows[i].style.display !== "none") {
+                headerHasVisibleRows = true;
+            }
+        }
+    }
+    
+    if (currentHeader !== null) {
+        currentHeader.style.display = headerHasVisibleRows ? "" : "none";
+    }
 }
 
 function clearFilters() {
-    // Safely clear all inputs
     if(document.getElementById("eventSearchInput")) document.getElementById("eventSearchInput").value = "";
-    if(document.getElementById("filter_sport")) document.getElementById("filter_sport").value = "";
-    if(document.getElementById("filter_venue")) document.getElementById("filter_venue").value = "";
+    
+    // Trigger Select2 visual updates when clearing!
+    if(document.getElementById("filter_sport")) $('#filter_sport').val('').trigger('change');
+    if(document.getElementById("filter_venue")) $('#filter_venue').val('').trigger('change');
+    if(document.getElementById("filter_phase")) $('#filter_phase').val('').trigger('change');
+    
     if(document.getElementById("filter_date")) document.getElementById("filter_date").value = ""; 
-    if(document.getElementById("filter_phase")) document.getElementById("filter_phase").value = ""; // <-- NEW
     
     applyAdvancedFilters();
     
     let dropdown = document.getElementById("dropdown-filter");
     if(dropdown) dropdown.classList.remove("show");
 }
+
 // --- UPDATED BULLETPROOF SET RESULT MODAL SHAPE-SHIFTER ---
 function openSetResultModal(eventId) {
     fetch('event_action.php', {
@@ -860,11 +922,14 @@ function openSetResultModal(eventId) {
             document.getElementById('result_gold').innerHTML = optionsHtml;
             document.getElementById('result_silver').innerHTML = optionsHtml;
             document.getElementById('result_bronze').innerHTML = optionsHtml;
+            document.getElementById('result_generic_winner').innerHTML = optionsHtml;
 
             // Force the fetched database strings to uppercase before trying to match the options
             if (data.gold_winner) document.getElementById('result_gold').value = data.gold_winner.toUpperCase();
             if (data.silver_winner) document.getElementById('result_silver').value = data.silver_winner.toUpperCase();
             if (data.bronze_winner) document.getElementById('result_bronze').value = data.bronze_winner.toUpperCase();
+            if (data.match_winner) document.getElementById('result_generic_winner').value = data.match_winner.toUpperCase();
+            
 
             // --- DEFENSIVE PROGRAMMING SAFETY CHECK ---
             let wMedals = document.getElementById('wrapper_medals');
@@ -926,11 +991,12 @@ function submitResult(event) {
     let gold = document.getElementById('result_gold').value;
     let silver = document.getElementById('result_silver').value;
     let bronze = document.getElementById('result_bronze').value;
+    let genericWinner = document.getElementById('result_generic_winner').value;
 
     fetch('event_action.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'set_result', event_id: eventId, gold: gold, silver: silver, bronze: bronze })
+        body: JSON.stringify({ action: 'set_result', event_id: eventId, gold: gold, silver: silver, bronze: bronze, match_winner: genericWinner })
     })
     .then(response => response.text())
     .then(text => {

@@ -74,7 +74,8 @@ if ($data['action'] == 'fetch_event') {
             // The medals (silenced in case they are completely missing)
             'gold_winner' => $event['gold_winner'] ?? null,
             'silver_winner' => $event['silver_winner'] ?? null,
-            'bronze_winner' => $event['bronze_winner'] ?? null
+            'bronze_winner' => $event['bronze_winner'] ?? null,
+            'match_winner' => $event['match_winner'] ?? null
         ]);
     } else {
         echo json_encode(['status' => 'error', 'message' => 'Event not found']);
@@ -110,13 +111,15 @@ if (isset($data['action']) && $data['action'] == 'set_result') {
     $gold = mysqli_real_escape_string($conn, $data['gold']);
     $silver = mysqli_real_escape_string($conn, $data['silver']);
     $bronze = mysqli_real_escape_string($conn, $data['bronze']);
+    $match_winner = mysqli_real_escape_string($conn, $data['match_winner']); // <-- NEW
     
-    // We update the winners AND automatically change the status to Completed!
+    // Update winners and auto-complete the match!
     $query = "UPDATE sports_events SET 
               match_status = 'Completed', 
               gold_winner = IF('$gold'='', NULL, '$gold'), 
               silver_winner = IF('$silver'='', NULL, '$silver'), 
-              bronze_winner = IF('$bronze'='', NULL, '$bronze') 
+              bronze_winner = IF('$bronze'='', NULL, '$bronze'),
+              match_winner = IF('$match_winner'='', NULL, '$match_winner') 
               WHERE id = $event_id";
               
     if (mysqli_query($conn, $query)) {

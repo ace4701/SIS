@@ -10,7 +10,8 @@
 </div>
 
 <div id="addEventModal" class="custom-modal">
-    <div class="modal-box" style="width: 450px; text-align: left;">
+    <!-- NEW: Added max-height and overflow-y to enable vertical scrolling! -->
+    <div class="modal-box" style="width: 450px; text-align: left; max-height: 90vh; overflow-y: auto;">
         <h3 class="modal-title" style="margin-bottom: 20px; color: #0056b3; text-align: center;">Schedule New Event</h3>
         
         <form id="addEventForm" onsubmit="submitNewEvent(event)">
@@ -28,7 +29,24 @@
             </select>
             
             <div id="dynamic-state-inputs" style="margin-bottom: 15px; background: #f8f9fa; padding: 15px; border-radius: 4px; border: 1px solid #eee; display: none;">
-                </div>
+            </div>
+
+            <!-- NEW: Discipline and Time Fields for the ADD Modal -->
+            <label style="font-weight: bold; font-size: 14px;">Discipline / Category</label>
+            <select id="modal_event_discipline" style="width: 100%; padding: 10px; margin: 8px 0 15px 0; border: 1px solid #ccc; border-radius: 4px; background-color: white;">
+                <option value="" disabled selected>-- Select Discipline / Category --</option>
+                <option value="">N/A (No Category Needed)</option>
+                <?php 
+                mysqli_data_seek($disciplines_query, 0);
+                while($disc = mysqli_fetch_assoc($disciplines_query)) {
+                    echo "<option value='" . htmlspecialchars($disc['discipline_name']) . "'>" . $disc['discipline_name'] . "</option>";
+                }
+                ?>
+            </select>
+
+            <label style="font-weight: bold; font-size: 14px;">Event Time</label>
+            <input type="time" id="modal_event_time" style="width: 100%; padding: 10px; margin: 8px 0 15px 0; border: 1px solid #ccc; border-radius: 4px;">
+            
             <label style="font-weight: bold; font-size: 14px;">Venue / Stadium</label>
             <select id="modal_venue" required style="width: 100%; padding: 10px; margin: 8px 0 15px 0; border: 1px solid #ccc; border-radius: 4px; background-color: white;">
                 <option value="" disabled selected>-- Select an Official Venue --</option>
@@ -73,7 +91,7 @@
 </div>
 
 <div id="editEventModal" class="custom-modal">
-    <div class="modal-box" style="width: 450px; text-align: left;">
+    <div class="modal-box" style="width: 450px; text-align: left; max-height: 90vh; overflow-y: auto;">
         <h3 class="modal-title" style="margin-bottom: 20px; color: #0056b3; text-align: center;">Edit Event Schedule</h3>
         
         <form id="editEventForm" onsubmit="submitEditEvent(event)">
@@ -89,10 +107,26 @@
                 }
                 ?>
             </select>
-            
+
             <div id="edit-dynamic-state-inputs" style="margin-bottom: 15px; background: #f8f9fa; padding: 15px; border-radius: 4px; border: 1px solid #eee; display: none;">
             </div>
-            
+
+            <!-- NEW: Edit Discipline / Category -->
+            <label style="font-<label style="font-weight: bold; font-size: 14px;">Discipline / Category</label>
+            <select id="edit_modal_event_discipline" style="width: 100%; padding: 10px; margin: 8px 0 15px 0; border: 1px solid #ccc; border-radius: 4px; background-color: white;">
+                <option value="" disabled>-- Select Discipline / Category --</option>
+                <option value="">N/A (No Category Needed)</option>
+                <?php 
+                mysqli_data_seek($disciplines_query, 0);
+                while($disc = mysqli_fetch_assoc($disciplines_query)) {
+                    echo "<option value='" . htmlspecialchars($disc['discipline_name']) . "'>" . $disc['discipline_name'] . "</option>";
+                }
+                ?>
+            </select>
+            <!-- NEW: Edit Event Time -->
+            <label style="font-weight: bold; font-size: 14px;">Event Time</label>
+            <input type="time" id="edit_modal_event_time" style="width: 100%; padding: 10px; margin: 8px 0 15px 0; border: 1px solid #ccc; border-radius: 4px;">
+
             <label style="font-weight: bold; font-size: 14px;">Venue / Stadium</label>
             <select id="edit_modal_venue" required style="width: 100%; padding: 10px; margin: 8px 0 15px 0; border: 1px solid #ccc; border-radius: 4px; background-color: white;">
                 <option value="" disabled selected>-- Select an Official Venue --</option>
@@ -151,8 +185,12 @@
                 </div>
             </div>
 
-            <div id="wrapper_generic" style="display: none; text-align: center; margin-bottom: 20px; color: #666; font-style: italic;">
-                This match phase does not award medals.<br>Mark this match as Completed?
+            <div id="wrapper_generic" style="display: none; background: #f8f9fa; padding: 15px; border-radius: 4px; border: 1px solid #ddd; margin-bottom: 15px;">
+                <label style="font-weight: bold; font-size: 14px; color: #333;">🏅 Match Winner / Advancing State</label>
+                <select id="result_generic_winner" style="width: 100%; padding: 8px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px;"></select>
+                <div style="text-align: center; margin-top: 10px; font-size: 12px; color: #666; font-style: italic;">
+                    Select the winner to mark this match as Completed.
+                </div>
             </div>
 
             <div class="modal-actions">

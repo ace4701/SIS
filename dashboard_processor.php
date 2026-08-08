@@ -241,4 +241,36 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['setting_action'])) {
             header("Location: dashboard.php");
             exit();
         }
+
+        // --- ADD NEW DISCIPLINE ---
+        if (isset($_POST['setting_action']) && $_POST['setting_action'] == 'add_discipline') {
+            $discipline_name = trim($_POST['discipline_name']);
+            if (!empty($discipline_name)) {
+                $stmt = mysqli_prepare($conn, "INSERT INTO disciplines_list (discipline_name) VALUES (?)");
+                if ($stmt) {
+                    mysqli_stmt_bind_param($stmt, "s", $discipline_name);
+                    if (mysqli_stmt_execute($stmt)) {
+                        $_SESSION['setting_msg'] = "<div style='color: white; background: #28a745; padding: 10px; border-radius: 4px; margin-bottom: 15px;'>✅ Discipline '$discipline_name' added successfully!</div>";
+                    }
+                    mysqli_stmt_close($stmt);
+                }
+            }
+            header("Location: dashboard.php");
+            exit();
+        }
+
+        // --- DELETE DISCIPLINE ---
+        if (isset($_POST['setting_action']) && $_POST['setting_action'] == 'delete_discipline') {
+            $id = (int)$_POST['discipline_id'];
+            $stmt = mysqli_prepare($conn, "DELETE FROM disciplines_list WHERE id = ?");
+            if ($stmt) {
+                mysqli_stmt_bind_param($stmt, "i", $id);
+                if (mysqli_stmt_execute($stmt)) {
+                    $_SESSION['setting_msg'] = "<div style='color: white; background: #dc3545; padding: 10px; border-radius: 4px; margin-bottom: 15px;'>🗑️ Discipline deleted.</div>";
+                }
+                mysqli_stmt_close($stmt);
+            }
+            header("Location: dashboard.php");
+            exit();
+        }
 ?>
